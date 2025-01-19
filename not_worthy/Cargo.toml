@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 bevy = "0.15.1"
 avian2d = "0.2.0"
+bevy_asset_loader = { version = "0.22.0", features = ["2d"] }
+bevy_sprite3d = "4.0.0"
+leafwing-input-manager = "0.16.0"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

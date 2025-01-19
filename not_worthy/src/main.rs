@@ -1,114 +1,141 @@
+mod animation;
+mod asset_load;
 mod combat;
 mod enemy;
+mod game_state;
+mod input_manager;
 mod movement;
+mod summoning;
 
-use crate::combat::{CombatPlugin, Hitter};
-use crate::enemy::{EnemyPlugin, Target, Walker};
-use crate::movement::{Controllable, MovementPlugin};
-use avian2d::prelude::{Collider, Gravity, LockedAxes, MassPropertiesBundle, RigidBody};
+use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
+use crate::asset_load::{DebugSprite, EnemySprite, SkeletonSprite, SwordAnimation};
+use crate::combat::{CombatPlugin, Hitter, Opfer};
+use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
+use crate::game_state::GameState;
+use crate::input_manager::InputManagingPlugin;
+use crate::movement::{
+    get_enemy_collision_layers, get_player_collision_layers, Controllable, MovementPlugin,
+};
+use crate::summoning::{spawn_enemy, spawn_player, SummoningPlugin};
+use crate::GameState::Loading;
+use avian2d::prelude::{
+    Collider, CollisionLayers, Gravity, LockedAxes, MassPropertiesBundle, RigidBody,
+};
 use avian2d::PhysicsPlugins;
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
+use bevy_asset_loader::prelude::{
+    AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt, LoadingStateConfig,
+};
+use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams, Sprite3dPlugin};
+use std::collections::VecDeque;
+use std::f32::consts::PI;
+use std::time::Duration;
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
     app.add_plugins(MovementPlugin);
     app.add_plugins(CombatPlugin);
+    app.add_plugins(InputManagingPlugin);
+    app.add_plugins(SummoningPlugin);
     app.add_plugins(EnemyPlugin);
+    app.add_plugins(SpriteAnimationPlugin);
     app.add_plugins(PhysicsPlugins::default());
-    app.add_systems(Startup, setup);
     app.insert_resource(Gravity(Vec2::new(0.0, -9.81)));
+    app.add_plugins(Sprite3dPlugin);
+    app.init_state::<GameState>();
+    app.add_loading_state(
+        LoadingState::new(GameState::Loading)
+            .continue_to_state(GameState::Main)
+            .load_collection::<SwordAnimation>()
+            .load_collection::<DebugSprite>()
+            .load_collection::<EnemySprite>()
+            .load_collection::<SkeletonSprite>(),
+    );
+    app.add_systems(
+        OnEnter(GameState::Main),
+        setup.run_if(in_state(GameState::Main)),
+    );
     app.run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    asset: Res<SwordAnimation>,
+    debug_asset: Res<DebugSprite>,
+    skel_asset: Res<SkeletonSprite>,
+    hero_asset: Res<EnemySprite>,
+    mut sprite_params: Sprite3dParams,
+) {
     commands.spawn((
-        Camera2d,
-        Transform::from_xyz(0.0, 2.00, 0.0),
-        OrthographicProjection {
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.00, 10.0),
+        Projection::from(OrthographicProjection {
+            // 6 world units per pixel of window height.
             scaling_mode: ScalingMode::FixedHorizontal {
-                viewport_width: 40.0,
+                viewport_width: 12.0,
             },
-            ..OrthographicProjection::default_2d()
-        },
-    ));
-    commands.spawn((
-        Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
-        RigidBody::Dynamic,
-        Collider::circle(0.5),
-        Controllable { speed: 10.0 },
-        Hitter {
-            hit_box: Vec2::new(1.0, 1.0),
-            offset: Vec2::new(1.0, 0.0),
-            hit_mask: 0,
-            direction: 1.0,
-        },
-        LockedAxes::ROTATION_LOCKED,
-        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        Sprite::from_color(Color::WHITE, Vec2::new(1.0, 1.0)),
-    ));
-    commands.spawn((
-        Transform::from_translation(Vec3::new(-1.0, 1.0, 0.0)),
-        RigidBody::Dynamic,
-        Collider::circle(0.5),
-        Controllable { speed: 10.0 },
-        Hitter {
-            hit_box: Vec2::new(1.0, 1.0),
-            offset: Vec2::new(1.0, 0.0),
-            hit_mask: 0,
-            direction: 1.0,
-        },
-        LockedAxes::ROTATION_LOCKED,
-        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        Sprite::from_color(Color::WHITE, Vec2::new(1.0, 1.0)),
-    ));
-    commands.spawn((
-        Transform::from_translation(Vec3::new(2.0, 1.0, 0.0)),
-        RigidBody::Dynamic,
-        Collider::circle(0.5),
-        Controllable { speed: 10.0 },
-        Hitter {
-            hit_box: Vec2::new(1.0, 1.0),
-            offset: Vec2::new(1.0, 0.0),
-            hit_mask: 0,
-            direction: 1.0,
-        },
-        LockedAxes::ROTATION_LOCKED,
-        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        Sprite::from_color(Color::WHITE, Vec2::new(1.0, 1.0)),
+            ..OrthographicProjection::default_3d()
+        }),
     ));
 
     commands.spawn((
-        Transform::from_translation(Vec3::new(6.0, 1.0, 0.0)),
-        RigidBody::Dynamic,
-        Target {
-            pos: Vec2::new(0.0, 0.0),
+        PointLight {
+            color: Color::srgb(1.0, 1.0, 1.0),
+            intensity: 200000.0,
+            range: 20.0,
+            radius: 0.0,
+            ..Default::default()
         },
-        Walker { speed: 2.0 },
-        Collider::circle(0.5),
-        LockedAxes::ROTATION_LOCKED,
-        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        Sprite::from_color(Color::linear_rgb(0.5, 0.1, 0.1), Vec2::new(1.0, 1.0)),
+        Transform::from_xyz(0.0, 0.0, 2.0),
     ));
+    commands.insert_resource(AmbientLight {
+        color: Color::srgb(0.6, 1.0, 0.7),
+        brightness: 100.0,
+    });
+    spawn_player(&mut commands, 0.0, &skel_asset.idle, &mut sprite_params);
+    spawn_player(&mut commands, 2.0, &skel_asset.idle, &mut sprite_params);
+    spawn_player(&mut commands, -1.5, &skel_asset.idle, &mut sprite_params);
+
+    spawn_enemy(&mut commands, -10.0, &hero_asset.idle, &mut sprite_params);
+    spawn_enemy(&mut commands, -6.0, &hero_asset.idle, &mut sprite_params);
+    spawn_enemy(&mut commands, -3.0, &hero_asset.idle, &mut sprite_params);
+    spawn_enemy(&mut commands, 4.0, &hero_asset.idle, &mut sprite_params);
+    spawn_enemy(&mut commands, 7.0, &hero_asset.idle, &mut sprite_params);
+    spawn_enemy(&mut commands, 12.0, &hero_asset.idle, &mut sprite_params);
+
+    let texture_atlas = TextureAtlas {
+        layout: asset.layout.clone(),
+        index: 0,
+    };
 
     commands.spawn((
-        Transform::from_translation(Vec3::new(-6.0, 1.0, 0.0)),
-        RigidBody::Dynamic,
-        Target {
-            pos: Vec2::new(0.0, 0.0),
+        Sprite3dBuilder {
+            image: asset.idle.clone(),
+            pixels_per_metre: 500.0,
+            alpha_mode: AlphaMode::Blend,
+            unlit: false,
+            ..default()
+        }
+        .bundle_with_atlas(&mut sprite_params, texture_atlas),
+        AnimationTimer {
+            timer: Timer::new(Duration::from_secs_f32(0.15), TimerMode::Repeating),
         },
-        Walker { speed: 2.0 },
-        Collider::circle(0.5),
-        LockedAxes::ROTATION_LOCKED,
-        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        Sprite::from_color(Color::linear_rgb(0.5, 0.1, 0.1), Vec2::new(1.0, 1.0)),
+        Transform::from_xyz(0.0, -0.1, -1.0),
     ));
+    let sprite = Sprite3dBuilder {
+        image: debug_asset.idle.clone(),
+        pixels_per_metre: 1.0,
+        alpha_mode: AlphaMode::Blend,
+        unlit: false,
+        ..default()
+    };
 
     commands.spawn((
-        Transform::from_translation(Vec3::new(0.0, -1.0, 0.0)),
+        Transform::from_xyz(0.0, -1.0, 0.5).with_scale(Vec3::new(100.0, 1.0, 1.0)),
         RigidBody::Static,
-        Collider::rectangle(100.0, 1.0),
-        Sprite::from_color(Color::WHITE, Vec2::new(100.0, 1.0)),
+        Collider::rectangle(1.0, 1.0),
+        sprite.bundle(&mut sprite_params),
     ));
 }
