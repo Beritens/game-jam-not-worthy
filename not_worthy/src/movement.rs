@@ -32,7 +32,6 @@ fn movement(
     for (action) in &input_query {
         // let x = gamepad.get(GamepadAxis::LeftStickX).unwrap();
         let x = action.clamped_value(&Action::Move);
-        println!("x input {}", x);
         if x.abs() > 0.01 {
             x_input = x;
         }
@@ -42,7 +41,7 @@ fn movement(
     }
 }
 #[derive(PhysicsLayer, Default)]
-enum GameLayer {
+pub enum GameLayer {
     #[default]
     Default, // Layer 0 - the default layer that objects are assigned to
     Player, // Layer 1

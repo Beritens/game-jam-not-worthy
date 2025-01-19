@@ -1,13 +1,16 @@
 use crate::input_manager::{Action, BasicControl};
-use avian2d::prelude::{Collider, LinearVelocity, SpatialQuery, SpatialQueryFilter};
+use crate::movement::{Controllable, GameLayer};
+use avian2d::prelude::{Collider, LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
 use bevy::prelude::{
     info, Commands, Component, Entity, Gamepad, GamepadAxis, GamepadButton, IntoSystemConfigs,
-    Query, SystemSet, Transform, Vec3Swizzles, With,
+    Query, Res, Startup, SystemSet, Time, Timer, Transform, Vec3Swizzles, With,
 };
+use bevy::time::TimerMode;
 use leafwing_input_manager::prelude::ActionState;
 use std::collections::VecDeque;
+use std::time::Duration;
 
 pub struct CombatPlugin;
 
@@ -16,11 +19,27 @@ pub struct CombatSet;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_player_attacks);
         app.add_systems(
             Update,
-            ((player_hit, enemy_take_damage.after(player_hit)).in_set(CombatSet)),
+            ((
+                player_hit,
+                hit_system.after(player_hit),
+                enemy_take_damage.after(hit_system),
+            )
+                .in_set(CombatSet)),
         );
+        // app.add_systems(Update, (player_hit));
     }
+}
+
+fn setup_player_attacks(mut commands: Commands) {
+    commands.spawn((
+        Cooldown {
+            timer: Timer::new(Duration::from_secs_f32(0.2), TimerMode::Once),
+        },
+        PlayerHit {},
+    ));
 }
 
 #[derive(Component)]
@@ -28,6 +47,10 @@ pub struct Hitter {
     pub hit_box: Vec2,
     pub offset: Vec2,
     pub hit_mask: u32,
+    pub spatial_query_filter: SpatialQueryFilter,
+}
+#[derive(Component)]
+pub struct Direction {
     pub direction: f32,
 }
 
@@ -63,13 +86,21 @@ pub struct Opfer {
     pub hits: VecDeque<Attack>,
 }
 
+#[derive(Component)]
+pub struct Cooldown {
+    pub timer: Timer,
+}
+#[derive(Component)]
+pub struct PlayerHit {}
+
 fn player_hit(
+    time: Res<Time>,
+    mut commands: Commands,
     input_query: Query<(&ActionState<Action>), With<BasicControl>>,
-    mut query: Query<(&Transform, &mut Hitter, Entity)>,
-    mut opfer_query: Query<(&mut Opfer)>,
-    spatial_query: SpatialQuery,
+    mut cooldown_query: Query<(&mut Cooldown), With<PlayerHit>>,
+    mut query: Query<(&Transform, &mut Direction, Entity), (With<Hitter>, With<Controllable>)>,
 ) {
-    let mut direction = 0.0;
+    let mut dirr = 0.0;
     let mut attack = false;
     for (action) in &input_query {
         if action.just_pressed(&Action::Punch) {
@@ -78,23 +109,78 @@ fn player_hit(
 
         let x = action.clamped_value(&Action::Move);
         if x.abs() > 0.01 {
-            direction = x.signum();
+            dirr = x.signum();
         }
     }
-    if (direction.abs() > 0.01 || attack) {
-        for (transform, mut hitter, entity) in query.iter_mut() {
-            if (direction.abs() > 0.0) {
-                hitter.direction = direction;
+
+    for mut cooldown in cooldown_query.iter_mut() {
+        cooldown.timer.tick(time.delta());
+        if (cooldown.timer.finished()) {
+            if (attack) {
+                cooldown.timer.reset();
+            }
+        } else {
+            attack = false;
+        }
+    }
+    if (dirr.abs() > 0.01 || attack) {
+        for (transform, mut direction, entity) in query.iter_mut() {
+            if (dirr.abs() > 0.0) {
+                direction.direction = dirr;
             }
             if (attack) {
-                hit(
-                    &spatial_query,
-                    &mut opfer_query,
-                    &hitter,
-                    transform.translation.xy(),
-                );
+                commands.entity(entity).insert(Hitting {});
             }
         }
+    }
+}
+
+pub fn hit_test(
+    spatial_query: &SpatialQuery,
+    hitter: &Hitter,
+    direction: &Direction,
+    origin: Vec2,
+    opfer_query: &Query<&Opfer>,
+    spatial_query_filter: &SpatialQueryFilter,
+) -> bool {
+    let intersections = spatial_query.shape_intersections(
+        &Collider::rectangle(hitter.hit_box.x, hitter.hit_box.y),
+        origin + hitter.offset * direction.direction,
+        0.0,
+        &spatial_query_filter,
+    );
+    let mut count = 0;
+    for entity in intersections.iter() {
+        if let Ok(opfer) = opfer_query.get(*entity) {
+            if ((1 << opfer.hit_layer & hitter.hit_mask) != 0) {
+                count += 1;
+            }
+        }
+    }
+    if (count > 0) {
+        return true;
+    }
+    return false;
+}
+#[derive(Component)]
+pub struct Hitting {}
+
+fn hit_system(
+    mut commands: Commands,
+    query: Query<(&Transform, &Direction, &Hitter, Entity), With<Hitting>>,
+    mut opfer_query: Query<(&mut Opfer)>,
+    spatial_query: SpatialQuery,
+) {
+    for (transform, direction, hitter, entity) in query.iter() {
+        hit(
+            &spatial_query,
+            &mut opfer_query,
+            &hitter,
+            &direction,
+            transform.translation.xy(),
+            &hitter.spatial_query_filter,
+        );
+        commands.entity(entity).remove::<Hitting>();
     }
 }
 
@@ -102,13 +188,15 @@ fn hit(
     spatial_query: &SpatialQuery,
     mut opfer_query: &mut Query<&mut Opfer>,
     hitter: &Hitter,
+    direction: &Direction,
     origin: Vec2,
+    spatial_query_filter: &SpatialQueryFilter,
 ) {
     let intersections = spatial_query.shape_intersections(
         &Collider::rectangle(hitter.hit_box.x, hitter.hit_box.y),
-        origin + hitter.offset * hitter.direction,
+        origin + hitter.offset * direction.direction,
         0.0,
-        &SpatialQueryFilter::default(),
+        &spatial_query_filter,
     );
     let mut count = 0;
     for entity in intersections.iter() {

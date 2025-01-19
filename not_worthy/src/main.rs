@@ -5,6 +5,7 @@ mod enemy;
 mod game_state;
 mod input_manager;
 mod movement;
+mod spawning;
 mod summoning;
 
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
@@ -16,7 +17,8 @@ use crate::input_manager::InputManagingPlugin;
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, MovementPlugin,
 };
-use crate::summoning::{spawn_enemy, spawn_player, SummoningPlugin};
+use crate::spawning::{spawn_enemy, Spawner, SpawningPlugin};
+use crate::summoning::{spawn_player, SummoningPlugin};
 use crate::GameState::Loading;
 use avian2d::prelude::{
     Collider, CollisionLayers, Gravity, LockedAxes, MassPropertiesBundle, RigidBody,
@@ -39,6 +41,7 @@ fn main() {
     app.add_plugins(CombatPlugin);
     app.add_plugins(InputManagingPlugin);
     app.add_plugins(SummoningPlugin);
+    app.add_plugins(SpawningPlugin);
     app.add_plugins(EnemyPlugin);
     app.add_plugins(SpriteAnimationPlugin);
     app.add_plugins(PhysicsPlugins::default());
@@ -98,12 +101,25 @@ fn setup(
     spawn_player(&mut commands, 2.0, &skel_asset.idle, &mut sprite_params);
     spawn_player(&mut commands, -1.5, &skel_asset.idle, &mut sprite_params);
 
-    spawn_enemy(&mut commands, -10.0, &hero_asset.idle, &mut sprite_params);
-    spawn_enemy(&mut commands, -6.0, &hero_asset.idle, &mut sprite_params);
-    spawn_enemy(&mut commands, -3.0, &hero_asset.idle, &mut sprite_params);
-    spawn_enemy(&mut commands, 4.0, &hero_asset.idle, &mut sprite_params);
-    spawn_enemy(&mut commands, 7.0, &hero_asset.idle, &mut sprite_params);
-    spawn_enemy(&mut commands, 12.0, &hero_asset.idle, &mut sprite_params);
+    // spawn_enemy(&mut commands, -10.0, &hero_asset.idle, &mut sprite_params);
+    // spawn_enemy(&mut commands, -6.0, &hero_asset.idle, &mut sprite_params);
+    // spawn_enemy(&mut commands, -3.0, &hero_asset.idle, &mut sprite_params);
+    // spawn_enemy(&mut commands, 4.0, &hero_asset.idle, &mut sprite_params);
+    // spawn_enemy(&mut commands, 7.0, &hero_asset.idle, &mut sprite_params);
+    // spawn_enemy(&mut commands, 12.0, &hero_asset.idle, &mut sprite_params);
+    commands.spawn((
+        Transform::from_xyz(7.0, 2.00, 0.0),
+        Spawner {
+            timer: Timer::new(Duration::from_secs_f32(3.0), TimerMode::Repeating),
+        },
+    ));
+
+    commands.spawn((
+        Transform::from_xyz(-7.0, 2.00, 0.0),
+        Spawner {
+            timer: Timer::new(Duration::from_secs_f32(3.0), TimerMode::Repeating),
+        },
+    ));
 
     let texture_atlas = TextureAtlas {
         layout: asset.layout.clone(),
