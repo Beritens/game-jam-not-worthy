@@ -6,7 +6,7 @@ use crate::enemy::{
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
 use crate::movement::{get_enemy_collision_layers, GameLayer};
-use crate::summoning::Deceased;
+use crate::summoning::{spawn_player, Deceased};
 use avian2d::collision::{Collider, LayerMask};
 use avian2d::prelude::{LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
@@ -55,6 +55,13 @@ fn continuous_spawning_system(
                 &enemy_asset.idle,
                 &mut sprite_params,
             );
+
+            // spawn_player(
+            //     &mut commands,
+            //     transform.translation.x,
+            //     &enemy_asset,
+            //     &mut sprite_params,
+            // );
             let duration = spawner.timer.duration().as_secs_f32();
             spawner
                 .timer

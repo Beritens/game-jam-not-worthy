@@ -1,3 +1,7 @@
+use crate::animation::{
+    HitAnimation, HitAnimationRunning, IdleAnimation, IdleAnimationRunning, WalkingAnimation,
+    WalkingAnimationRunning,
+};
 use crate::asset_load::{EnemySprite, SkeletonSprite};
 use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
@@ -6,6 +10,7 @@ use crate::input_manager::{Action, BasicControl};
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
+use crate::player_states::{PlayerIdleState, PlayerStateMaschine, WalkAnim};
 use avian2d::collision::Collider;
 use avian2d::prelude::{
     LayerMask, LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter,
@@ -16,19 +21,22 @@ use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component,
-    DespawnRecursiveExt, Entity, IntoSystemConfigs, PreUpdate, Query, Res, Transform, With,
+    DespawnRecursiveExt, Entity, IntoSystemConfigs, PreUpdate, Query, Res, Timer, Transform, With,
 };
+use bevy::sprite::TextureAtlas;
+use bevy::time::TimerMode;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
+use std::time::Duration;
 
 pub struct SummoningPlugin;
 
 impl Plugin for SummoningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, arise_system.run_if(in_state(GameState::Main)));
-        app.add_systems(PreUpdate, die_system.run_if(in_state(GameState::Main)));
+        // app.add_systems(PreUpdate, die_system.run_if(in_state(GameState::Main)));
         // add things to your app here
     }
 }
@@ -50,7 +58,7 @@ fn arise_system(
                 spawn_player(
                     &mut commands,
                     transform.translation.x,
-                    &skelet_asset.idle,
+                    &skelet_asset,
                     &mut sprite_params,
                 );
                 commands.entity(entity).despawn();
@@ -62,22 +70,31 @@ fn arise_system(
 pub fn spawn_player(
     mut commands: &mut Commands,
     pos: f32,
-    image: &Handle<Image>,
+    asset: &SkeletonSprite,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
     let sprite = Sprite3dBuilder {
-        image: image.clone(),
-        pixels_per_metre: 500.0,
+        image: asset.idle.clone(),
+        pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
         ..default()
     };
+
+    let texture_atlas = TextureAtlas {
+        layout: asset.layout.clone(),
+        index: 0,
+    };
     let parent = commands
         .spawn((
-            Transform::from_translation(Vec3::new(pos, 1.0, 0.0)),
+            PlayerStateMaschine { attack_time: 0.1 },
+            PlayerIdleState { new: true },
+            WalkAnim { active: false },
+            IdleAnimationRunning { new: true },
+            Transform::from_translation(Vec3::new(pos, 0.0, 0.0)),
             RigidBody::Dynamic,
             Collider::circle(0.5),
-            Controllable { speed: 6.0 },
+            Controllable { speed: 3.0 },
             get_player_collision_layers(),
             Direction { direction: -1.0 },
             Opfer {
@@ -98,7 +115,22 @@ pub fn spawn_player(
         ))
         .with_children(|parent| {
             parent.spawn((
-                sprite.bundle(sprite3d_params),
+                WalkingAnimation {
+                    start: 4,
+                    end: 10,
+                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                },
+                IdleAnimation {
+                    start: 0,
+                    end: 0,
+                    timer: Timer::default(),
+                },
+                HitAnimation {
+                    start: 1,
+                    end: 3,
+                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                },
+                sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
                 Transform::from_rotation(Quat::from_rotation_y(PI)),
             ));
         });
@@ -126,8 +158,8 @@ pub fn spawn_deceased(
         sprite.bundle(sprite3d_params),
     ));
 }
-pub fn die_system(mut commands: Commands, query: Query<Entity, (With<Dead>, With<Controllable>)>) {
-    for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
-    }
-}
+// pub fn die_system(mut commands: Commands, query: Query<Entity, (With<Dead>, With<Controllable>)>) {
+//     for entity in query.iter() {
+//         commands.entity(entity).despawn_recursive();
+//     }
+// }

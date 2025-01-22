@@ -28,7 +28,18 @@ pub struct EnemySprite {
 
 #[derive(AssetCollection, Resource)]
 pub struct SkeletonSprite {
-    #[asset(path = "dead.png")]
+    #[asset(texture_atlas_layout(
+        tile_size_x = 128,
+        tile_size_y = 128,
+        columns = 1,
+        rows = 11,
+        padding_x = 0,
+        padding_y = 0,
+        offset_x = 0,
+        offset_y = 0
+    ))]
+    pub layout: Handle<TextureAtlasLayout>,
+    #[asset(path = "skeleton_sprite_sheet.png")]
     pub idle: Handle<Image>,
 }
 

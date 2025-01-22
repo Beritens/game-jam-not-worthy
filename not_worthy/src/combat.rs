@@ -1,5 +1,6 @@
 use crate::input_manager::{Action, BasicControl};
 use crate::movement::{Controllable, GameLayer};
+use crate::player_states::AttackNow;
 use avian2d::prelude::{Collider, LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
@@ -36,7 +37,7 @@ impl Plugin for CombatPlugin {
 fn setup_player_attacks(mut commands: Commands) {
     commands.spawn((
         Cooldown {
-            timer: Timer::new(Duration::from_secs_f32(0.2), TimerMode::Once),
+            timer: Timer::new(Duration::from_secs_f32(0.3), TimerMode::Once),
         },
         PlayerHit {},
     ));
@@ -108,7 +109,7 @@ fn player_hit(
         }
 
         let x = action.clamped_value(&Action::Move);
-        if x.abs() > 0.01 {
+        if x.abs() > 0.5 {
             dirr = x.signum();
         }
     }
@@ -123,13 +124,14 @@ fn player_hit(
             attack = false;
         }
     }
-    if (dirr.abs() > 0.01 || attack) {
+    if (dirr.abs() > 0.0 || attack) {
         for (transform, mut direction, entity) in query.iter_mut() {
             if (dirr.abs() > 0.0) {
                 direction.direction = dirr;
             }
             if (attack) {
                 commands.entity(entity).insert(Hitting {});
+                commands.entity(entity).insert(AttackNow {});
             }
         }
     }

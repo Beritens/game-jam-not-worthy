@@ -5,6 +5,7 @@ mod enemy;
 mod game_state;
 mod input_manager;
 mod movement;
+mod player_states;
 mod spawning;
 mod summoning;
 
@@ -17,6 +18,7 @@ use crate::input_manager::InputManagingPlugin;
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, MovementPlugin,
 };
+use crate::player_states::PlayerPlugin;
 use crate::spawning::{spawn_enemy, Spawner, SpawningPlugin};
 use crate::summoning::{spawn_player, SummoningPlugin};
 use crate::GameState::Loading;
@@ -39,6 +41,7 @@ fn main() {
     app.add_plugins(DefaultPlugins);
     app.add_plugins(MovementPlugin);
     app.add_plugins(CombatPlugin);
+    app.add_plugins(PlayerPlugin);
     app.add_plugins(InputManagingPlugin);
     app.add_plugins(SummoningPlugin);
     app.add_plugins(SpawningPlugin);
@@ -97,9 +100,9 @@ fn setup(
         color: Color::srgb(0.6, 1.0, 0.7),
         brightness: 100.0,
     });
-    spawn_player(&mut commands, 0.0, &skel_asset.idle, &mut sprite_params);
-    spawn_player(&mut commands, 2.0, &skel_asset.idle, &mut sprite_params);
-    spawn_player(&mut commands, -1.5, &skel_asset.idle, &mut sprite_params);
+    spawn_player(&mut commands, 0.0, &skel_asset, &mut sprite_params);
+    spawn_player(&mut commands, 2.0, &skel_asset, &mut sprite_params);
+    spawn_player(&mut commands, -1.5, &skel_asset, &mut sprite_params);
 
     // spawn_enemy(&mut commands, -10.0, &hero_asset.idle, &mut sprite_params);
     // spawn_enemy(&mut commands, -6.0, &hero_asset.idle, &mut sprite_params);
@@ -136,6 +139,8 @@ fn setup(
         }
         .bundle_with_atlas(&mut sprite_params, texture_atlas),
         AnimationTimer {
+            start: 0,
+            end: 8,
             timer: Timer::new(Duration::from_secs_f32(0.15), TimerMode::Repeating),
         },
         Transform::from_xyz(0.0, -0.1, -1.0),
