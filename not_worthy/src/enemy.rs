@@ -1,3 +1,6 @@
+use crate::animation::{
+    HitAnimationRunning, IdleAnimationRunning, TelegraphAnimationRunning, WalkingAnimationRunning,
+};
 use crate::asset_load::EnemySprite;
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
 use crate::game_state::GameState;
@@ -5,6 +8,7 @@ use crate::movement::GameLayer;
 use crate::summoning::spawn_deceased;
 use avian2d::prelude::{LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, Plugin, PreUpdate, Update};
+use bevy::hierarchy::DespawnRecursiveExt;
 use bevy::prelude::{
     in_state, Bundle, Commands, Component, Entity, IntoSystemConfigs, Query, Res, SystemSet, Time,
     TimerMode, Transform, Vec2, Vec3Swizzles, With,
@@ -106,6 +110,8 @@ pub struct AttackingHit {
 #[derive(Component)]
 pub struct HitComposer {
     pub timer: Timer,
+    pub after_timer: Timer,
+    pub state: i32,
 }
 
 //basic hit attack
@@ -117,13 +123,37 @@ fn attack_system(
     for (mut hit_composer, mut attacking_hit, entity) in query.iter_mut() {
         if (attacking_hit.new) {
             hit_composer.timer.reset();
+            hit_composer.after_timer.reset();
+            hit_composer.state = 0;
             attacking_hit.new = false;
+
+            commands
+                .entity(entity)
+                .insert(TelegraphAnimationRunning { new: true });
         }
-        hit_composer.timer.tick(time.delta());
-        if (hit_composer.timer.just_finished()) {
-            commands.entity(entity).insert(Hitting {});
-            commands.entity(entity).remove::<AttackingHit>();
-            commands.entity(entity).insert(FinishedAttack {});
+        match hit_composer.state {
+            0 => {
+                hit_composer.timer.tick(time.delta());
+                if (hit_composer.timer.just_finished()) {
+                    commands.entity(entity).insert(Hitting {});
+                    commands
+                        .entity(entity)
+                        .remove::<TelegraphAnimationRunning>();
+                    commands
+                        .entity(entity)
+                        .insert(HitAnimationRunning { new: true });
+                    hit_composer.state = 1;
+                }
+            }
+            1 => {
+                hit_composer.after_timer.tick(time.delta());
+                if (hit_composer.after_timer.just_finished()) {
+                    commands.entity(entity).remove::<HitAnimationRunning>();
+                    commands.entity(entity).insert(FinishedAttack {});
+                    commands.entity(entity).remove::<AttackingHit>();
+                }
+            }
+            _ => {}
         }
     }
     //for entities with Attacking
@@ -169,6 +199,7 @@ fn basic_enem_active_state_system(
             commands
                 .entity(entity)
                 .insert(BacicEnemAttackState { new: true });
+            continue;
         }
     }
     for (stunned, entity) in stunned_query.iter() {
@@ -176,10 +207,14 @@ fn basic_enem_active_state_system(
         commands
             .entity(entity)
             .insert(BacisEnemStunnedState { new: true });
+        continue;
     }
 }
 
 fn basic_enem_active_on_enter(mut commands: &mut Commands, entity: Entity) {
+    commands
+        .entity(entity)
+        .insert(WalkingAnimationRunning { new: true });
     commands.entity(entity).insert(Walking {});
     commands.entity(entity).insert(AttackCheck {});
 }
@@ -188,6 +223,7 @@ fn basic_enem_active_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<AttackCheck>();
     commands.entity(entity).remove::<AttackReady>();
     commands.entity(entity).remove::<Walking>();
+    commands.entity(entity).remove::<WalkingAnimationRunning>();
 }
 
 #[derive(Component)]
@@ -235,6 +271,7 @@ fn basic_enem_stunned_state_system(
                     .entity(entity)
                     .insert(BacicEnemActiveState { new: true });
                 basic_enem_stunned_on_exit(&mut commands, entity);
+                continue;
             }
         }
     }
@@ -244,11 +281,15 @@ fn basic_enem_stunned_on_enter(mut commands: &mut Commands, entity: Entity, stun
     commands.entity(entity).insert(StunnedTimer {
         timer: Timer::new(Duration::from_secs_f32(stunned_time), TimerMode::Once),
     });
+    commands
+        .entity(entity)
+        .insert(IdleAnimationRunning { new: true });
     commands.entity(entity).remove::<Stunned>();
 }
 fn basic_enem_stunned_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<BacisEnemStunnedState>();
     commands.entity(entity).remove::<StunnedTimer>();
+    commands.entity(entity).remove::<IdleAnimationRunning>();
 }
 
 #[derive(Component)]
@@ -262,11 +303,12 @@ fn basic_enem_dead_state_system(
     mut sprite_params: Sprite3dParams,
 ) {
     for (mut state, entity, transform) in dead_state_query.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).despawn_recursive();
         spawn_deceased(
             &mut commands,
             transform.translation.x,
-            &hero_asset.idle,
+            &hero_asset.image,
+            &hero_asset.layout,
             &mut sprite_params,
         );
     }
@@ -304,6 +346,7 @@ fn basic_enem_attack_state_system(
             commands
                 .entity(entity)
                 .insert(BacicEnemActiveState { new: true });
+            continue;
         }
     }
 }

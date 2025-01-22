@@ -1,3 +1,7 @@
+use crate::animation::{
+    HitAnimation, IdleAnimation, IdleAnimationRunning, TelegraphAnimation, WalkingAnimation,
+    WalkingAnimationRunning,
+};
 use crate::asset_load::{EnemySprite, SkeletonSprite};
 use crate::combat::{Direction, Health, Hitter, Opfer};
 use crate::enemy::{
@@ -6,21 +10,23 @@ use crate::enemy::{
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
 use crate::movement::{get_enemy_collision_layers, GameLayer};
+use crate::player_states::WalkAnim;
 use crate::summoning::{spawn_player, Deceased};
 use avian2d::collision::{Collider, LayerMask};
 use avian2d::prelude::{LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
 use bevy::asset::Handle;
 use bevy::image::Image;
-use bevy::math::{Vec2, Vec3};
+use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
-    default, in_state, AlphaMode, Circle, Commands, Component, Entity, IntoSystemConfigs, Query,
-    Res, Time, Transform, With,
+    default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component, Entity,
+    IntoSystemConfigs, Query, Res, TextureAtlas, Time, Transform, With,
 };
 use bevy::time::{Timer, TimerMode};
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
 use std::collections::VecDeque;
+use std::f32::consts::PI;
 use std::time::Duration;
 
 pub struct SpawningPlugin;
@@ -52,7 +58,7 @@ fn continuous_spawning_system(
             spawn_enemy(
                 &mut commands,
                 transform.translation.x,
-                &enemy_asset.idle,
+                &enemy_asset,
                 &mut sprite_params,
             );
 
@@ -73,20 +79,27 @@ fn continuous_spawning_system(
 pub fn spawn_enemy(
     mut commands: &mut Commands,
     pos: f32,
-    image: &Handle<Image>,
+    asset: &EnemySprite,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
     let sprite = Sprite3dBuilder {
-        image: image.clone(),
-        pixels_per_metre: 500.0,
+        image: asset.image.clone(),
+        pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
         ..default()
     };
+
+    let texture_atlas = TextureAtlas {
+        layout: asset.layout.clone(),
+        index: 0,
+    };
     let hit_composer = HitComposer {
         timer: Timer::new(Duration::from_secs_f32(0.4), TimerMode::Once),
+        after_timer: Timer::new(Duration::from_secs_f32(0.1), TimerMode::Once),
+        state: 0,
     };
-    commands
+    let parent = commands
         .spawn((
             Transform::from_translation(Vec3::new(pos, 1.0, 0.0)),
             RigidBody::Dynamic,
@@ -117,7 +130,32 @@ pub fn spawn_enemy(
             Collider::circle(0.5),
             LockedAxes::ROTATION_LOCKED,
             MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-            sprite.bundle(sprite3d_params),
         ))
-        .insert(hit_composer);
+        .insert((hit_composer, WalkingAnimationRunning { new: true }))
+        .with_children(|parent| {
+            parent.spawn((
+                WalkingAnimation {
+                    start: 4,
+                    end: 11,
+                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                },
+                IdleAnimation {
+                    start: 0,
+                    end: 0,
+                    timer: Timer::default(),
+                },
+                HitAnimation {
+                    start: 2,
+                    end: 3,
+                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                },
+                TelegraphAnimation {
+                    start: 1,
+                    end: 1,
+                    timer: Timer::default(),
+                },
+                sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
+                Transform::from_rotation(Quat::from_rotation_y(PI)),
+            ));
+        });
 }

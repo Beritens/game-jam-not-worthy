@@ -16,6 +16,7 @@ impl Plugin for SpriteAnimationPlugin {
                 walk_animation_system,
                 hit_animation_system,
                 idle_animation_system,
+                telegraph_animation_system,
             ),
         );
     }
@@ -87,6 +88,29 @@ fn idle_animation_system(
     time: Res<Time>,
     mut parent_query: Query<(&Children, &mut IdleAnimationRunning)>,
     mut query: Query<(&mut IdleAnimation, &mut Sprite3d)>,
+) {
+    for (children, mut anim) in parent_query.iter_mut() {
+        for &child in children.iter() {
+            if let Ok((mut timer, mut sprite_3d)) = query.get_mut(child) {
+                let start = timer.start;
+                let end = timer.end;
+                next_sprite(
+                    &mut timer.timer,
+                    &time,
+                    start,
+                    end,
+                    &mut sprite_3d,
+                    anim.new,
+                );
+            }
+        }
+        anim.new = false;
+    }
+}
+fn telegraph_animation_system(
+    time: Res<Time>,
+    mut parent_query: Query<(&Children, &mut TelegraphAnimationRunning)>,
+    mut query: Query<(&mut TelegraphAnimation, &mut Sprite3d)>,
 ) {
     for (children, mut anim) in parent_query.iter_mut() {
         for &child in children.iter() {
@@ -185,5 +209,17 @@ pub struct IdleAnimation {
 
 #[derive(Component)]
 pub struct IdleAnimationRunning {
+    pub new: bool,
+}
+
+#[derive(Component)]
+pub struct TelegraphAnimation {
+    pub start: usize,
+    pub end: usize,
+    pub timer: Timer,
+}
+
+#[derive(Component)]
+pub struct TelegraphAnimationRunning {
     pub new: bool,
 }

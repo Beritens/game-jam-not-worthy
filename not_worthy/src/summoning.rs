@@ -21,7 +21,8 @@ use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component,
-    DespawnRecursiveExt, Entity, IntoSystemConfigs, PreUpdate, Query, Res, Timer, Transform, With,
+    DespawnRecursiveExt, Entity, IntoSystemConfigs, PreUpdate, Query, Res, TextureAtlasLayout,
+    Timer, Transform, With,
 };
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
@@ -74,7 +75,7 @@ pub fn spawn_player(
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
     let sprite = Sprite3dBuilder {
-        image: asset.idle.clone(),
+        image: asset.image.clone(),
         pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
@@ -142,8 +143,13 @@ pub fn spawn_deceased(
     mut commands: &mut Commands,
     pos: f32,
     image: &Handle<Image>,
+    texture_atlas_layout: &Handle<TextureAtlasLayout>,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
+    let texture_atlas = TextureAtlas {
+        layout: texture_atlas_layout.clone(),
+        index: 0,
+    };
     let sprite = Sprite3dBuilder {
         image: image.clone(),
         pixels_per_metre: 500.0,
@@ -155,7 +161,7 @@ pub fn spawn_deceased(
         Transform::from_translation(Vec3::new(pos, -0.5, 0.0))
             .with_rotation(Quat::from_rotation_z(PI / 2.0)),
         Deceased {},
-        sprite.bundle(sprite3d_params),
+        sprite.bundle_with_atlas(sprite3d_params, texture_atlas.clone()),
     ));
 }
 // pub fn die_system(mut commands: Commands, query: Query<Entity, (With<Dead>, With<Controllable>)>) {

@@ -22,8 +22,19 @@ pub struct SwordAnimation {
 
 #[derive(AssetCollection, Resource)]
 pub struct EnemySprite {
-    #[asset(path = "hero.png")]
-    pub idle: Handle<Image>,
+    #[asset(texture_atlas_layout(
+        tile_size_x = 128,
+        tile_size_y = 128,
+        columns = 1,
+        rows = 12,
+        padding_x = 0,
+        padding_y = 0,
+        offset_x = 0,
+        offset_y = 0
+    ))]
+    pub layout: Handle<TextureAtlasLayout>,
+    #[asset(path = "hero_sprite_sheet.png")]
+    pub image: Handle<Image>,
 }
 
 #[derive(AssetCollection, Resource)]
@@ -40,7 +51,7 @@ pub struct SkeletonSprite {
     ))]
     pub layout: Handle<TextureAtlasLayout>,
     #[asset(path = "skeleton_sprite_sheet.png")]
-    pub idle: Handle<Image>,
+    pub image: Handle<Image>,
 }
 
 #[derive(AssetCollection, Resource)]
