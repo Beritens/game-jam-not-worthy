@@ -59,3 +59,21 @@ pub struct DebugSprite {
     #[asset(path = "white.png")]
     pub idle: Handle<Image>,
 }
+
+#[derive(AssetCollection, Resource)]
+pub struct EnvironmentArt {
+    #[asset(path = "light.png")]
+    pub light: Handle<Image>,
+    #[asset(path = "stone/stone_top.png")]
+    pub stone_top: Handle<Image>,
+    #[asset(path = "stone/stone_bottom.png")]
+    pub stone_bottom: Handle<Image>,
+    #[asset(path = "background.png")]
+    pub background: Handle<Image>,
+    #[asset(path = "pile.png")]
+    pub bone_pile: Handle<Image>,
+    #[asset(path = "ground.png")]
+    pub ground: Handle<Image>,
+    #[asset(path = "under_ground.png")]
+    pub under_ground: Handle<Image>,
+}

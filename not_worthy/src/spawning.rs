@@ -22,6 +22,7 @@ use bevy::prelude::{
 use bevy::time::{Timer, TimerMode};
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
+use rand::Rng;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::time::Duration;
@@ -54,7 +55,7 @@ fn continuous_spawning_system(
         if (spawner.timer.just_finished()) {
             spawn_enemy(
                 &mut commands,
-                transform.translation.x,
+                transform.translation + Vec3::Z * rand::thread_rng().gen_range(-0.3..0.3),
                 &enemy_asset,
                 &mut sprite_params,
             );
@@ -75,7 +76,7 @@ fn continuous_spawning_system(
 
 pub fn spawn_enemy(
     mut commands: &mut Commands,
-    pos: f32,
+    pos: Vec3,
     asset: &EnemySprite,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
@@ -99,7 +100,7 @@ pub fn spawn_enemy(
     };
     let parent = commands
         .spawn((
-            Transform::from_translation(Vec3::new(pos, 1.0, 0.0)),
+            Transform::from_translation(pos),
             RigidBody::Dynamic,
             get_enemy_collision_layers(),
             Target {
