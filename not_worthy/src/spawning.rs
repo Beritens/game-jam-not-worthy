@@ -1,7 +1,4 @@
-use crate::animation::{
-    HitAnimation, IdleAnimation, IdleAnimationRunning, TelegraphAnimation, WalkingAnimation,
-    WalkingAnimationRunning,
-};
+use crate::animation::{Animation, AnimationManager};
 use crate::asset_load::{EnemySprite, SkeletonSprite};
 use crate::combat::{Direction, Health, Hitter, Opfer};
 use crate::enemy::{
@@ -20,7 +17,7 @@ use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component, Entity,
-    IntoSystemConfigs, Query, Res, TextureAtlas, Time, Transform, With,
+    IntoSystemConfigs, Query, Res, TextureAtlas, Time, Transform, Visibility, With,
 };
 use bevy::time::{Timer, TimerMode};
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
@@ -87,6 +84,7 @@ pub fn spawn_enemy(
         pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
+        pivot: Option::from(Vec2::new(0.4, 0.5)),
         ..default()
     };
 
@@ -131,29 +129,43 @@ pub fn spawn_enemy(
             LockedAxes::ROTATION_LOCKED,
             MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
         ))
-        .insert((hit_composer, WalkingAnimationRunning { new: true }))
+        .insert((
+            hit_composer,
+            Visibility::default(),
+            AnimationManager {
+                running: 3,
+                new: true,
+                done: false,
+                animations: vec![
+                    Animation {
+                        start: 0,
+                        end: 0,
+                        repeating: true,
+                        timer: Default::default(),
+                    },
+                    Animation {
+                        start: 1,
+                        end: 1,
+                        repeating: false,
+                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                    },
+                    Animation {
+                        start: 2,
+                        end: 3,
+                        repeating: false,
+                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                    },
+                    Animation {
+                        start: 4,
+                        end: 10,
+                        repeating: true,
+                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                    },
+                ],
+            },
+        ))
         .with_children(|parent| {
             parent.spawn((
-                WalkingAnimation {
-                    start: 4,
-                    end: 11,
-                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
-                },
-                IdleAnimation {
-                    start: 0,
-                    end: 0,
-                    timer: Timer::default(),
-                },
-                HitAnimation {
-                    start: 2,
-                    end: 3,
-                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
-                },
-                TelegraphAnimation {
-                    start: 1,
-                    end: 1,
-                    timer: Timer::default(),
-                },
                 sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
                 Transform::from_rotation(Quat::from_rotation_y(PI)),
             ));

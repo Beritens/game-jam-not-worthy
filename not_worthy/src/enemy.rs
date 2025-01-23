@@ -1,6 +1,4 @@
-use crate::animation::{
-    HitAnimationRunning, IdleAnimationRunning, TelegraphAnimationRunning, WalkingAnimationRunning,
-};
+use crate::animation::AnimationManager;
 use crate::asset_load::EnemySprite;
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
 use crate::game_state::GameState;
@@ -119,6 +117,7 @@ fn attack_system(
     time: Res<Time>,
     mut commands: Commands,
     mut query: Query<(&mut HitComposer, &mut AttackingHit, Entity)>,
+    mut animation_query: Query<&mut AnimationManager>,
 ) {
     for (mut hit_composer, mut attacking_hit, entity) in query.iter_mut() {
         if (attacking_hit.new) {
@@ -126,29 +125,26 @@ fn attack_system(
             hit_composer.after_timer.reset();
             hit_composer.state = 0;
             attacking_hit.new = false;
-
-            commands
-                .entity(entity)
-                .insert(TelegraphAnimationRunning { new: true });
+            if let Ok(mut anim) = animation_query.get_mut(entity) {
+                anim.running = 1;
+                anim.new = true;
+            }
         }
         match hit_composer.state {
             0 => {
                 hit_composer.timer.tick(time.delta());
                 if (hit_composer.timer.just_finished()) {
                     commands.entity(entity).insert(Hitting {});
-                    commands
-                        .entity(entity)
-                        .remove::<TelegraphAnimationRunning>();
-                    commands
-                        .entity(entity)
-                        .insert(HitAnimationRunning { new: true });
+                    if let Ok(mut anim) = animation_query.get_mut(entity) {
+                        anim.running = 2;
+                        anim.new = true;
+                    }
                     hit_composer.state = 1;
                 }
             }
             1 => {
                 hit_composer.after_timer.tick(time.delta());
                 if (hit_composer.after_timer.just_finished()) {
-                    commands.entity(entity).remove::<HitAnimationRunning>();
                     commands.entity(entity).insert(FinishedAttack {});
                     commands.entity(entity).remove::<AttackingHit>();
                 }
@@ -188,10 +184,13 @@ fn basic_enem_active_state_system(
     mut active_state_query: Query<(&mut BacicEnemActiveState, Entity)>,
     stunned_query: Query<(&Stunned, Entity), With<BacicEnemActiveState>>,
     attack_ready_query: Query<(&AttackReady)>,
+    mut animation_query: Query<&mut AnimationManager>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
         if (state.new) {
-            basic_enem_active_on_enter(&mut commands, entity);
+            if let Ok(mut anim) = animation_query.get_mut(entity) {
+                basic_enem_active_on_enter(&mut commands, entity, &mut anim);
+            }
             state.new = false;
         }
         if let Ok(attack_ready) = attack_ready_query.get(entity) {
@@ -211,10 +210,13 @@ fn basic_enem_active_state_system(
     }
 }
 
-fn basic_enem_active_on_enter(mut commands: &mut Commands, entity: Entity) {
-    commands
-        .entity(entity)
-        .insert(WalkingAnimationRunning { new: true });
+fn basic_enem_active_on_enter(
+    mut commands: &mut Commands,
+    entity: Entity,
+    anim: &mut AnimationManager,
+) {
+    anim.running = 3;
+    anim.new = true;
     commands.entity(entity).insert(Walking {});
     commands.entity(entity).insert(AttackCheck {});
 }
@@ -223,7 +225,6 @@ fn basic_enem_active_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<AttackCheck>();
     commands.entity(entity).remove::<AttackReady>();
     commands.entity(entity).remove::<Walking>();
-    commands.entity(entity).remove::<WalkingAnimationRunning>();
 }
 
 #[derive(Component)]
@@ -242,13 +243,21 @@ fn basic_enem_stunned_state_system(
     mut stunned_state_query: Query<(&mut BacisEnemStunnedState, Entity)>,
     mut dead_query: Query<(&Dead)>,
     mut stunned_timer_query: Query<(&mut StunnedTimer)>,
+    mut anim_query: Query<&mut AnimationManager>,
     stunned_query: Query<(&Stunned)>,
     state_machine_query: Query<(&BasicEnemStateMachine)>,
 ) {
     for (mut state, entity) in stunned_state_query.iter_mut() {
         if (state.new) {
             if let Ok(state_machine) = state_machine_query.get(entity) {
-                basic_enem_stunned_on_enter(&mut commands, entity, state_machine.stunne_time);
+                if let Ok(mut anim) = anim_query.get_mut(entity) {
+                    basic_enem_stunned_on_enter(
+                        &mut commands,
+                        entity,
+                        state_machine.stunne_time,
+                        &mut anim,
+                    );
+                }
                 state.new = false;
             }
         }
@@ -277,19 +286,22 @@ fn basic_enem_stunned_state_system(
     }
 }
 
-fn basic_enem_stunned_on_enter(mut commands: &mut Commands, entity: Entity, stunned_time: f32) {
+fn basic_enem_stunned_on_enter(
+    mut commands: &mut Commands,
+    entity: Entity,
+    stunned_time: f32,
+    anim: &mut AnimationManager,
+) {
     commands.entity(entity).insert(StunnedTimer {
         timer: Timer::new(Duration::from_secs_f32(stunned_time), TimerMode::Once),
     });
-    commands
-        .entity(entity)
-        .insert(IdleAnimationRunning { new: true });
+    anim.running = 0;
+    anim.new = true;
     commands.entity(entity).remove::<Stunned>();
 }
 fn basic_enem_stunned_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<BacisEnemStunnedState>();
     commands.entity(entity).remove::<StunnedTimer>();
-    commands.entity(entity).remove::<IdleAnimationRunning>();
 }
 
 #[derive(Component)]

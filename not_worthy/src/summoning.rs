@@ -1,7 +1,4 @@
-use crate::animation::{
-    HitAnimation, HitAnimationRunning, IdleAnimation, IdleAnimationRunning, WalkingAnimation,
-    WalkingAnimationRunning,
-};
+use crate::animation::{Animation, AnimationManager};
 use crate::asset_load::{EnemySprite, SkeletonSprite};
 use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
@@ -22,7 +19,7 @@ use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component,
     DespawnRecursiveExt, Entity, IntoSystemConfigs, PreUpdate, Query, Res, TextureAtlasLayout,
-    Timer, Transform, With,
+    Timer, Transform, Visibility, With,
 };
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
@@ -79,6 +76,7 @@ pub fn spawn_player(
         pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
+        pivot: Option::from(Vec2::new(0.4, 0.5)),
         ..default()
     };
 
@@ -91,7 +89,31 @@ pub fn spawn_player(
             PlayerStateMaschine { attack_time: 0.1 },
             PlayerIdleState { new: true },
             WalkAnim { active: false },
-            IdleAnimationRunning { new: true },
+            AnimationManager {
+                running: 0,
+                new: true,
+                done: false,
+                animations: vec![
+                    Animation {
+                        start: 0,
+                        end: 0,
+                        repeating: true,
+                        timer: Default::default(),
+                    },
+                    Animation {
+                        start: 1,
+                        end: 3,
+                        repeating: false,
+                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                    },
+                    Animation {
+                        start: 4,
+                        end: 10,
+                        repeating: true,
+                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                    },
+                ],
+            },
             Transform::from_translation(Vec3::new(pos, 0.0, 0.0)),
             RigidBody::Dynamic,
             Collider::circle(0.5),
@@ -105,7 +127,7 @@ pub fn spawn_player(
             Health::from_health(1.0),
             Hitter {
                 hit_box: Vec2::new(1.0, 1.0),
-                offset: Vec2::new(1.0, 0.0),
+                offset: Vec2::new(0.5, 0.0),
                 hit_mask: 1,
                 spatial_query_filter: SpatialQueryFilter::from_mask(LayerMask::from(
                     GameLayer::Enemy,
@@ -114,23 +136,9 @@ pub fn spawn_player(
             LockedAxes::ROTATION_LOCKED,
             MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
         ))
+        .insert((Visibility::default(),))
         .with_children(|parent| {
             parent.spawn((
-                WalkingAnimation {
-                    start: 4,
-                    end: 10,
-                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
-                },
-                IdleAnimation {
-                    start: 0,
-                    end: 0,
-                    timer: Timer::default(),
-                },
-                HitAnimation {
-                    start: 1,
-                    end: 3,
-                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
-                },
                 sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
                 Transform::from_rotation(Quat::from_rotation_y(PI)),
             ));
@@ -152,9 +160,10 @@ pub fn spawn_deceased(
     };
     let sprite = Sprite3dBuilder {
         image: image.clone(),
-        pixels_per_metre: 500.0,
+        pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
+        pivot: Option::from(Vec2::new(0.4, 0.5)),
         ..default()
     };
     commands.spawn((

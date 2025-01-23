@@ -1,14 +1,9 @@
-use crate::animation::{HitAnimationRunning, IdleAnimationRunning, WalkingAnimationRunning};
-use crate::combat::{CombatSet, Dead, Hitting, Stunned};
-use crate::enemy::{
-    AttackCheck, AttackReady, BacicEnemActiveState, BacicEnemAttackState, BacisEnemStunnedState,
-    Walking,
-};
-use crate::game_state::GameState;
-use bevy::app::{App, Plugin, PreUpdate, Update};
+use crate::animation::AnimationManager;
+use crate::combat::Dead;
+use bevy::app::{App, Plugin, PreUpdate};
 use bevy::prelude::{
-    in_state, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemConfigs, Query, Res,
-    SystemSet, Time, Timer, With,
+    Commands, Component, DespawnRecursiveExt, Entity, IntoSystemConfigs, Query, Res, SystemSet,
+    Time, Timer,
 };
 use bevy::time::TimerMode;
 use std::time::Duration;
@@ -78,10 +73,13 @@ fn player_idle_state_system(
     hitting_query: Query<&AttackNow>,
     walking_query: Query<&WalkAnim>,
     dead_query: Query<&Dead>,
+    mut anim_query: Query<&mut AnimationManager>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
         if (state.new) {
-            player_idle_on_enter(&mut commands, entity);
+            if let Ok(mut anim) = anim_query.get_mut(entity) {
+                player_idle_on_enter(&mut anim);
+            }
             state.new = false;
         }
         if let Ok(hitting) = hitting_query.get(entity) {
@@ -112,14 +110,12 @@ fn player_idle_state_system(
     }
 }
 
-fn player_idle_on_enter(mut commands: &mut Commands, entity: Entity) {
-    commands
-        .entity(entity)
-        .insert(IdleAnimationRunning { new: true });
+fn player_idle_on_enter(anim: &mut AnimationManager) {
+    anim.running = 0;
+    anim.new = true;
 }
 fn player_idle_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<PlayerIdleState>();
-    commands.entity(entity).remove::<IdleAnimationRunning>();
 }
 
 #[derive(Component)]
@@ -133,12 +129,20 @@ fn player_attack_state_system(
     dead_query: Query<&Dead>,
     state_machine_query: Query<&PlayerStateMaschine>,
     mut attack_timer_query: Query<&mut AttackTimer>,
+    mut anim_query: Query<&mut AnimationManager>,
     time: Res<Time>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
         if (state.new) {
             if let Ok(state_machine) = state_machine_query.get(entity) {
-                player_attacking_on_enter(&mut commands, entity, state_machine.attack_time);
+                if let Ok(mut anim) = anim_query.get_mut(entity) {
+                    player_attacking_on_enter(
+                        &mut commands,
+                        entity,
+                        state_machine.attack_time,
+                        &mut anim,
+                    );
+                }
                 state.new = false;
             }
         }
@@ -163,10 +167,14 @@ fn player_attack_state_system(
     }
 }
 
-fn player_attacking_on_enter(mut commands: &mut Commands, entity: Entity, attack_time: f32) {
-    commands
-        .entity(entity)
-        .insert(HitAnimationRunning { new: true });
+fn player_attacking_on_enter(
+    mut commands: &mut Commands,
+    entity: Entity,
+    attack_time: f32,
+    anim: &mut AnimationManager,
+) {
+    anim.running = 1;
+    anim.new = true;
 
     commands.entity(entity).insert(AttackTimer {
         timer: Timer::new(Duration::from_secs_f32(attack_time), TimerMode::Once),
@@ -176,7 +184,6 @@ fn player_attacking_on_enter(mut commands: &mut Commands, entity: Entity, attack
 }
 fn player_attacking_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<PlayerAttackingState>();
-    commands.entity(entity).remove::<HitAnimationRunning>();
     commands.entity(entity).remove::<AttackTimer>();
 }
 
@@ -186,10 +193,13 @@ fn player_walk_state_system(
     hitting_query: Query<&AttackNow>,
     walking_query: Query<&WalkAnim>,
     dead_query: Query<&Dead>,
+    mut anim_query: Query<&mut AnimationManager>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
         if (state.new) {
-            player_walking_on_enter(&mut commands, entity);
+            if let Ok(mut anim) = anim_query.get_mut(entity) {
+                player_walking_on_enter(&mut anim);
+            }
             state.new = false;
         }
         if let Ok(hitting) = hitting_query.get(entity) {
@@ -220,14 +230,12 @@ fn player_walk_state_system(
     }
 }
 
-fn player_walking_on_enter(mut commands: &mut Commands, entity: Entity) {
-    commands
-        .entity(entity)
-        .insert(WalkingAnimationRunning { new: true });
+fn player_walking_on_enter(anim: &mut AnimationManager) {
+    anim.running = 2;
+    anim.new = true;
 }
 fn player_walking_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<PlayerWalkingState>();
-    commands.entity(entity).remove::<WalkingAnimationRunning>();
 }
 
 fn player_dead_state_system(
