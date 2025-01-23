@@ -10,7 +10,7 @@ mod spawning;
 mod summoning;
 
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
-use crate::asset_load::{DebugSprite, EnemySprite, EnvironmentArt, SkeletonSprite, SwordAnimation};
+use crate::asset_load::{EnemySprite, EnvironmentArt, SkeletonSprite, SwordAnimation};
 use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
 use crate::game_state::GameState;
@@ -58,7 +58,7 @@ fn main() {
             .continue_to_state(GameState::Main)
             .load_collection::<SwordAnimation>()
             .load_collection::<EnvironmentArt>()
-            .load_collection::<DebugSprite>()
+            // .load_collection::<DebugSprite>()
             .load_collection::<EnemySprite>()
             .load_collection::<SkeletonSprite>(),
     );
@@ -78,7 +78,6 @@ fn main() {
 struct MainCamera;
 fn setup(
     mut commands: Commands,
-    asset: Res<SwordAnimation>,
     skel_asset: Res<SkeletonSprite>,
     mut sprite_params: Sprite3dParams,
 ) {
@@ -106,9 +105,12 @@ fn setup(
         Collider::rectangle(1.0, 1.0),
     ));
 
-    spawn_player(&mut commands, 0.0, &skel_asset, &mut sprite_params);
-    spawn_player(&mut commands, 2.0, &skel_asset, &mut sprite_params);
-    spawn_player(&mut commands, -1.5, &skel_asset, &mut sprite_params);
+    spawn_player(
+        &mut commands,
+        Vec3::new(1.5, 1.0, 0.0),
+        &skel_asset,
+        &mut sprite_params,
+    );
 
     // spawn_enemy(&mut commands, -10.0, &hero_asset.idle, &mut sprite_params);
     // spawn_enemy(&mut commands, -6.0, &hero_asset.idle, &mut sprite_params);
@@ -117,14 +119,14 @@ fn setup(
     // spawn_enemy(&mut commands, 7.0, &hero_asset.idle, &mut sprite_params);
     // spawn_enemy(&mut commands, 12.0, &hero_asset.idle, &mut sprite_params);
     commands.spawn((
-        Transform::from_xyz(7.0, 2.00, 0.0),
+        Transform::from_xyz(15.0, 2.00, 0.0),
         Spawner {
             timer: Timer::new(Duration::from_secs_f32(3.0), TimerMode::Repeating),
         },
     ));
 
     commands.spawn((
-        Transform::from_xyz(-7.0, 2.00, 0.0),
+        Transform::from_xyz(-15.0, 2.00, 0.0),
         Spawner {
             timer: Timer::new(Duration::from_secs_f32(3.0), TimerMode::Repeating),
         },
@@ -136,7 +138,6 @@ fn summon_world(
     sword_asset: Res<SwordAnimation>,
     world_asset: Res<EnvironmentArt>,
     mut sprite_params: Sprite3dParams,
-    debug_asset: Res<DebugSprite>,
 ) {
     commands.spawn((
         PointLight {

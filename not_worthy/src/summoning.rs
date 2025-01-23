@@ -25,6 +25,7 @@ use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
+use rand::Rng;
 use std::collections::VecDeque;
 use std::f32::consts::PI;
 use std::time::Duration;
@@ -55,7 +56,11 @@ fn arise_system(
             for (entity, transform) in deceased_query.iter() {
                 spawn_player(
                     &mut commands,
-                    transform.translation.x,
+                    Vec3::new(
+                        transform.translation.x,
+                        1.0,
+                        rand::thread_rng().gen_range(-0.3..0.3),
+                    ),
                     &skelet_asset,
                     &mut sprite_params,
                 );
@@ -66,8 +71,8 @@ fn arise_system(
 }
 
 pub fn spawn_player(
-    mut commands: &mut Commands,
-    pos: f32,
+    commands: &mut Commands,
+    pos: Vec3,
     asset: &SkeletonSprite,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
@@ -84,7 +89,7 @@ pub fn spawn_player(
         layout: asset.layout.clone(),
         index: 0,
     };
-    let parent = commands
+    commands
         .spawn((
             PlayerStateMaschine { attack_time: 0.1 },
             PlayerIdleState { new: true },
@@ -114,7 +119,7 @@ pub fn spawn_player(
                     },
                 ],
             },
-            Transform::from_translation(Vec3::new(pos, 0.0, 0.0)),
+            Transform::from_translation(pos),
             RigidBody::Dynamic,
             Collider::circle(0.5),
             Controllable { speed: 3.0 },
@@ -126,6 +131,8 @@ pub fn spawn_player(
             },
             Health::from_health(1.0),
             Hitter {
+                knockback: 5.0,
+                damage: 2.0,
                 hit_box: Vec2::new(1.0, 1.0),
                 offset: Vec2::new(0.5, 0.0),
                 hit_mask: 1,
@@ -148,11 +155,11 @@ pub fn spawn_player(
 pub struct Deceased {}
 
 pub fn spawn_deceased(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     pos: f32,
     image: &Handle<Image>,
     texture_atlas_layout: &Handle<TextureAtlasLayout>,
-    mut sprite3d_params: &mut Sprite3dParams,
+    sprite3d_params: &mut Sprite3dParams,
 ) {
     let texture_atlas = TextureAtlas {
         layout: texture_atlas_layout.clone(),

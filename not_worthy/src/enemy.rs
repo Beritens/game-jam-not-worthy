@@ -184,6 +184,7 @@ fn basic_enem_active_state_system(
     mut active_state_query: Query<(&mut BacicEnemActiveState, Entity)>,
     stunned_query: Query<(&Stunned, Entity), With<BacicEnemActiveState>>,
     attack_ready_query: Query<(&AttackReady)>,
+    dead_query: Query<&Dead>,
     mut animation_query: Query<&mut AnimationManager>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
@@ -192,6 +193,14 @@ fn basic_enem_active_state_system(
                 basic_enem_active_on_enter(&mut commands, entity, &mut anim);
             }
             state.new = false;
+        }
+
+        if let Ok(dead) = dead_query.get(entity) {
+            commands
+                .entity(entity)
+                .insert(BacicEnemDeadState { new: true });
+            basic_enem_active_on_exit(&mut commands, entity);
+            continue;
         }
         if let Ok(attack_ready) = attack_ready_query.get(entity) {
             basic_enem_active_on_exit(&mut commands, entity);
@@ -334,6 +343,7 @@ fn basic_enem_attack_state_system(
     mut commands: Commands,
     // stunned_query: Query<(&Stunned)>,
     attack_finished_query: Query<(&FinishedAttack)>,
+    dead_query: Query<&Dead>,
     mut attack_state_query: Query<(
         &mut BacicEnemAttackState,
         &BasicEnemStateMachine,
@@ -352,6 +362,13 @@ fn basic_enem_attack_state_system(
         //         .entity(entity)
         //         .insert(BacisEnemStunnedState { new: true });
         // }
+        if let Ok(dead) = dead_query.get(entity) {
+            commands
+                .entity(entity)
+                .insert(BacicEnemDeadState { new: true });
+            basic_enem_attack_on_exit(&mut commands, entity, &state_machine.basic_attack);
+            continue;
+        }
 
         if let Ok(finished_attack) = attack_finished_query.get(entity) {
             basic_enem_attack_on_exit(&mut commands, entity, &state_machine.basic_attack);

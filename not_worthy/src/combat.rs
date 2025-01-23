@@ -45,6 +45,8 @@ fn setup_player_attacks(mut commands: Commands) {
 
 #[derive(Component)]
 pub struct Hitter {
+    pub knockback: f32,
+    pub damage: f32,
     pub hit_box: Vec2,
     pub offset: Vec2,
     pub hit_mask: u32,
@@ -213,8 +215,8 @@ fn hit(
         if let Ok(mut opfer) = opfer_query.get_mut(*entity) {
             if ((1 << opfer.hit_layer & hitter.hit_mask) != 0) {
                 opfer.hits.push_back(Attack {
-                    damage: 2.0 / count as f32,
-                    knockback: 4.0 / count as f32,
+                    damage: hitter.damage / count as f32,
+                    knockback: hitter.knockback / count as f32,
                 });
             }
         }
@@ -243,6 +245,7 @@ fn enemy_take_damage(
             }
             health.health -= element.damage;
             if (health.health <= 0.0) {
+                linear_velocity.0 = Vec2::ZERO;
                 commands.entity(entity).insert(Dead {});
             }
         }

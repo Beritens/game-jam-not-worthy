@@ -54,11 +54,11 @@ pub struct SkeletonSprite {
     pub image: Handle<Image>,
 }
 
-#[derive(AssetCollection, Resource)]
-pub struct DebugSprite {
-    #[asset(path = "white.png")]
-    pub idle: Handle<Image>,
-}
+// #[derive(AssetCollection, Resource)]
+// pub struct DebugSprite {
+//     #[asset(path = "white.png")]
+//     pub idle: Handle<Image>,
+// }
 
 #[derive(AssetCollection, Resource)]
 pub struct EnvironmentArt {

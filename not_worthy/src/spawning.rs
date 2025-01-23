@@ -62,7 +62,7 @@ fn continuous_spawning_system(
 
             // spawn_player(
             //     &mut commands,
-            //     transform.translation.x,
+            //     transform.translation + Vec3::Z * rand::thread_rng().gen_range(-0.3..0.3),
             //     &enemy_asset,
             //     &mut sprite_params,
             // );
@@ -75,7 +75,7 @@ fn continuous_spawning_system(
 }
 
 pub fn spawn_enemy(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     pos: Vec3,
     asset: &EnemySprite,
     mut sprite3d_params: &mut Sprite3dParams,
@@ -98,7 +98,7 @@ pub fn spawn_enemy(
         after_timer: Timer::new(Duration::from_secs_f32(0.1), TimerMode::Once),
         state: 0,
     };
-    let parent = commands
+    commands
         .spawn((
             Transform::from_translation(pos),
             RigidBody::Dynamic,
@@ -111,6 +111,8 @@ pub fn spawn_enemy(
                 basic_attack: AttackType::BasicAttack,
             },
             Hitter {
+                knockback: 1.0,
+                damage: 1.0,
                 hit_box: Vec2::new(0.5, 1.0),
                 offset: Vec2::new(0.5, 0.0),
                 hit_mask: 2,
