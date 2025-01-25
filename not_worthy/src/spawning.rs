@@ -6,6 +6,7 @@ use crate::enemy::{
 };
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
+use crate::level_loading::SceneObject;
 use crate::movement::{get_enemy_collision_layers, GameLayer};
 use crate::player_states::WalkAnim;
 use crate::summoning::{spawn_player, Deceased};
@@ -33,13 +34,14 @@ impl Plugin for SpawningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            continuous_spawning_system.run_if(in_state(GameState::Main)),
+            continuous_spawning_system.run_if(in_state(GameState::InGame)),
         );
     }
 }
 
 #[derive(Component)]
 pub struct Spawner {
+    pub preheat: f32,
     pub(crate) timer: Timer,
 }
 
@@ -51,6 +53,21 @@ fn continuous_spawning_system(
     mut spawner_query: Query<(&mut Spawner, &Transform)>,
 ) {
     for (mut spawner, transform) in spawner_query.iter_mut() {
+        if (spawner.preheat > 0.0) {
+            let num = (spawner.preheat / spawner.timer.duration().as_secs_f32()).floor() as i32;
+            let reminder = spawner.preheat - num as f32;
+            spawner.timer.set_elapsed(Duration::from_secs_f32(reminder));
+            spawner.preheat = 0.0;
+            for i in (0..=num) {
+                spawn_enemy(
+                    &mut commands,
+                    transform.translation + Vec3::Z * rand::thread_rng().gen_range(-0.3..0.3),
+                    &enemy_asset,
+                    &mut sprite_params,
+                    i as f32 * spawner.timer.duration().as_secs_f32() + reminder,
+                );
+            }
+        }
         spawner.timer.tick(time.delta());
         if (spawner.timer.just_finished()) {
             spawn_enemy(
@@ -58,6 +75,7 @@ fn continuous_spawning_system(
                 transform.translation + Vec3::Z * rand::thread_rng().gen_range(-0.3..0.3),
                 &enemy_asset,
                 &mut sprite_params,
+                0.0,
             );
 
             // spawn_player(
@@ -73,12 +91,20 @@ fn continuous_spawning_system(
         }
     }
 }
+#[derive(Component)]
+pub struct Enemy;
+
+#[derive(Component)]
+pub struct TimeTravel {
+    pub time: f32,
+}
 
 pub fn spawn_enemy(
     commands: &mut Commands,
     pos: Vec3,
     asset: &EnemySprite,
     mut sprite3d_params: &mut Sprite3dParams,
+    time_travel: f32,
 ) {
     let sprite = Sprite3dBuilder {
         image: asset.image.clone(),
@@ -95,44 +121,46 @@ pub fn spawn_enemy(
     };
     let hit_composer = HitComposer {
         timer: Timer::new(Duration::from_secs_f32(0.4), TimerMode::Once),
-        after_timer: Timer::new(Duration::from_secs_f32(0.1), TimerMode::Once),
+        after_timer: Timer::new(Duration::from_secs_f32(0.2), TimerMode::Once),
         state: 0,
     };
-    commands
-        .spawn((
-            Transform::from_translation(pos),
-            RigidBody::Dynamic,
-            get_enemy_collision_layers(),
-            Target {
-                pos: Vec2::new(0.0, 0.0),
-            },
-            BasicEnemStateMachine {
-                stunne_time: 1.0,
-                basic_attack: AttackType::BasicAttack,
-            },
-            Hitter {
-                knockback: 1.0,
-                damage: 1.0,
-                hit_box: Vec2::new(0.5, 1.0),
-                offset: Vec2::new(0.5, 0.0),
-                hit_mask: 2,
-                spatial_query_filter: SpatialQueryFilter::from_mask(LayerMask::from(
-                    GameLayer::Player,
-                )),
-            },
-            Direction { direction: 1.0 },
-            BacicEnemActiveState { new: true },
-            Walker { speed: 2.0 },
-            Health::from_health(4.0),
-            Opfer {
-                hit_layer: 0,
-                hits: VecDeque::new(),
-            },
-            Collider::circle(0.5),
-            LockedAxes::ROTATION_LOCKED,
-            MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        ))
+    let mut enemy = commands.spawn((
+        Transform::from_translation(pos),
+        RigidBody::Dynamic,
+        get_enemy_collision_layers(),
+        Target {
+            pos: Vec2::new(0.0, 0.0),
+        },
+        BasicEnemStateMachine {
+            cooldown_time: 1.0,
+            stunne_time: 1.0,
+            basic_attack: AttackType::BasicAttack,
+        },
+        Hitter {
+            knockback: 1.0,
+            damage: 1.0,
+            hit_box: Vec2::new(0.5, 1.0),
+            offset: Vec2::new(0.5, 0.0),
+            hit_mask: 2,
+            spatial_query_filter: SpatialQueryFilter::from_mask(LayerMask::from(GameLayer::Player)),
+        },
+        Direction { direction: 1.0 },
+        BacicEnemActiveState { new: true },
+        Walker { speed: 2.0 },
+        Health::from_health(4.0),
+        Opfer {
+            hit_layer: 0,
+            hits: VecDeque::new(),
+        },
+        Collider::circle(0.5),
+        LockedAxes::ROTATION_LOCKED,
+        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
+    ));
+
+    enemy
         .insert((
+            Enemy,
+            SceneObject,
             hit_composer,
             Visibility::default(),
             AnimationManager {
@@ -173,4 +201,7 @@ pub fn spawn_enemy(
                 Transform::from_rotation(Quat::from_rotation_y(PI)),
             ));
         });
+    if (time_travel > 0.0) {
+        enemy.insert(TimeTravel { time: time_travel });
+    }
 }

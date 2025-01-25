@@ -77,3 +77,9 @@ pub struct EnvironmentArt {
     #[asset(path = "under_ground.png")]
     pub under_ground: Handle<Image>,
 }
+
+#[derive(AssetCollection, Resource)]
+pub struct CutSceneArt {
+    #[asset(path = "cut_scene.png")]
+    pub cut_scene: Handle<Image>,
+}

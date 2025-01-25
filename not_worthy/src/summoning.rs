@@ -4,6 +4,7 @@ use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
+use crate::level_loading::SceneObject;
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
@@ -34,7 +35,7 @@ pub struct SummoningPlugin;
 
 impl Plugin for SummoningPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, arise_system.run_if(in_state(GameState::Main)));
+        app.add_systems(Update, arise_system.run_if(in_state(GameState::InGame)));
         // app.add_systems(PreUpdate, die_system.run_if(in_state(GameState::Main)));
         // add things to your app here
     }
@@ -91,7 +92,7 @@ pub fn spawn_player(
     };
     commands
         .spawn((
-            PlayerStateMaschine { attack_time: 0.1 },
+            PlayerStateMaschine { attack_time: 0.15 },
             PlayerIdleState { new: true },
             WalkAnim { active: false },
             AnimationManager {
@@ -115,7 +116,7 @@ pub fn spawn_player(
                         start: 4,
                         end: 10,
                         repeating: true,
-                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                        timer: Timer::new(Duration::from_secs_f32(0.12), TimerMode::Repeating),
                     },
                 ],
             },
@@ -131,7 +132,7 @@ pub fn spawn_player(
             },
             Health::from_health(1.0),
             Hitter {
-                knockback: 5.0,
+                knockback: 2.0,
                 damage: 2.0,
                 hit_box: Vec2::new(1.0, 1.0),
                 offset: Vec2::new(0.5, 0.0),
@@ -143,7 +144,7 @@ pub fn spawn_player(
             LockedAxes::ROTATION_LOCKED,
             MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
         ))
-        .insert((Visibility::default(),))
+        .insert((Visibility::default(), SceneObject))
         .with_children(|parent| {
             parent.spawn((
                 sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
@@ -174,6 +175,7 @@ pub fn spawn_deceased(
         ..default()
     };
     commands.spawn((
+        SceneObject {},
         Transform::from_translation(Vec3::new(pos, -0.5, 0.0))
             .with_rotation(Quat::from_rotation_z(PI / 2.0)),
         Deceased {},

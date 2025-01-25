@@ -4,5 +4,8 @@ use bevy::prelude::States;
 pub enum GameState {
     #[default]
     Loading,
-    Main,
+    Menu,
+    InGame,
+    CutScene,
+    Shop,
 }

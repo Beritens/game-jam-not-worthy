@@ -3,10 +3,12 @@ use crate::asset_load::EnemySprite;
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
 use crate::game_state::GameState;
 use crate::movement::GameLayer;
+use crate::spawning::{Enemy, TimeTravel};
 use crate::summoning::spawn_deceased;
 use avian2d::prelude::{LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
-use bevy::app::{App, Plugin, PreUpdate, Update};
+use bevy::app::{App, FixedUpdate, Plugin, PreUpdate, Update};
 use bevy::hierarchy::DespawnRecursiveExt;
+use bevy::log::tracing_subscriber::fmt::time;
 use bevy::prelude::{
     in_state, Bundle, Commands, Component, Entity, IntoSystemConfigs, Query, Res, SystemSet, Time,
     TimerMode, Transform, Vec2, Vec3Swizzles, With,
@@ -26,10 +28,11 @@ impl Plugin for EnemyPlugin {
             Update,
             (
                 walk_to_target.before(CombatSet),
-                check_attack_system.before(CombatSet),
+                walk_to_target_time_travel.before(walk_to_target),
                 attack_system.before(CombatSet),
             ),
         );
+        app.add_systems(FixedUpdate, check_attack_system);
         //delete has to come before everything else to avoid panics (could also use try_insert)
 
         app.add_systems(
@@ -43,7 +46,7 @@ impl Plugin for EnemyPlugin {
                     .in_set(EnemBehaviorSet),
                 basic_enem_dead_state_system.before(EnemBehaviorSet),
             )
-                .run_if(in_state(GameState::Main)),),
+                .run_if(in_state(GameState::InGame)),),
         );
         // add things to your app here
     }
@@ -76,6 +79,27 @@ fn walk_to_target(
     for (mut linear_vel, mut direction, target, transform, walker) in query.iter_mut() {
         direction.direction = (target.pos.x - transform.translation.x).signum();
         linear_vel.x = direction.direction * walker.speed;
+    }
+}
+
+fn walk_to_target_time_travel(
+    mut commands: Commands,
+    mut query: Query<
+        (
+            &mut Direction,
+            &Target,
+            &mut Transform,
+            &Walker,
+            &TimeTravel,
+            Entity,
+        ),
+        With<Walking>,
+    >,
+) {
+    for (mut direction, target, mut transform, walker, time_travel, entity) in query.iter_mut() {
+        direction.direction = (target.pos.x - transform.translation.x).signum();
+        transform.translation.x += direction.direction * walker.speed * time_travel.time;
+        commands.entity(entity).remove::<TimeTravel>();
     }
 }
 
@@ -170,6 +194,7 @@ pub enum AttackType {
 }
 #[derive(Component)]
 pub struct BasicEnemStateMachine {
+    pub cooldown_time: f32,
     pub stunne_time: f32,
     pub basic_attack: AttackType,
 }
@@ -179,20 +204,42 @@ pub struct BacicEnemActiveState {
     pub new: bool,
 }
 
+#[derive(Component)]
+pub struct CooldownTimer {
+    timer: Timer,
+}
+
 fn basic_enem_active_state_system(
     mut commands: Commands,
     mut active_state_query: Query<(&mut BacicEnemActiveState, Entity)>,
     stunned_query: Query<(&Stunned, Entity), With<BacicEnemActiveState>>,
+    mut cooldown_timer_query: Query<(&mut CooldownTimer)>,
     attack_ready_query: Query<(&AttackReady)>,
     dead_query: Query<&Dead>,
     mut animation_query: Query<&mut AnimationManager>,
+    state_machine_query: Query<&BasicEnemStateMachine>,
+    time: Res<Time>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
         if (state.new) {
             if let Ok(mut anim) = animation_query.get_mut(entity) {
-                basic_enem_active_on_enter(&mut commands, entity, &mut anim);
+                if let Ok(state_machine) = state_machine_query.get(entity) {
+                    basic_enem_active_on_enter(
+                        &mut commands,
+                        entity,
+                        &mut anim,
+                        state_machine.cooldown_time,
+                    );
+                }
             }
             state.new = false;
+        }
+
+        if let Ok(mut cooldown_timer) = cooldown_timer_query.get_mut(entity) {
+            cooldown_timer.timer.tick(time.delta());
+            if cooldown_timer.timer.just_finished() {
+                commands.entity(entity).insert(AttackCheck {});
+            }
         }
 
         if let Ok(dead) = dead_query.get(entity) {
@@ -223,11 +270,14 @@ fn basic_enem_active_on_enter(
     mut commands: &mut Commands,
     entity: Entity,
     anim: &mut AnimationManager,
+    cooldown_time: f32,
 ) {
     anim.running = 3;
     anim.new = true;
     commands.entity(entity).insert(Walking {});
-    commands.entity(entity).insert(AttackCheck {});
+    commands.entity(entity).insert(CooldownTimer {
+        timer: Timer::new(Duration::from_secs_f32(cooldown_time), TimerMode::Once),
+    });
 }
 fn basic_enem_active_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<BacicEnemActiveState>();
