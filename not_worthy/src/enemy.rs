@@ -1,12 +1,14 @@
 use crate::animation::AnimationManager;
-use crate::asset_load::EnemySprite;
+use crate::asset_load::{EnemySounds, EnemySprite};
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
 use crate::game_state::GameState;
+use crate::level_loading::SceneObject;
 use crate::movement::GameLayer;
 use crate::spawning::{Enemy, TimeTravel};
 use crate::summoning::spawn_deceased;
 use avian2d::prelude::{LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, FixedUpdate, Plugin, PreUpdate, Update};
+use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
 use bevy::hierarchy::DespawnRecursiveExt;
 use bevy::log::tracing_subscriber::fmt::time;
 use bevy::prelude::{
@@ -29,7 +31,9 @@ impl Plugin for EnemyPlugin {
             (
                 walk_to_target.before(CombatSet),
                 walk_to_target_time_travel.before(walk_to_target),
-                attack_system.before(CombatSet),
+                attack_system
+                    .before(CombatSet)
+                    .run_if(in_state(GameState::InGame)),
             ),
         );
         app.add_systems(FixedUpdate, check_attack_system);
@@ -140,10 +144,11 @@ pub struct HitComposer {
 fn attack_system(
     time: Res<Time>,
     mut commands: Commands,
-    mut query: Query<(&mut HitComposer, &mut AttackingHit, Entity)>,
+    mut query: Query<(&mut HitComposer, &mut AttackingHit, &Transform, Entity)>,
     mut animation_query: Query<&mut AnimationManager>,
+    sound_asset: Res<EnemySounds>,
 ) {
-    for (mut hit_composer, mut attacking_hit, entity) in query.iter_mut() {
+    for (mut hit_composer, mut attacking_hit, transform, entity) in query.iter_mut() {
         if (attacking_hit.new) {
             hit_composer.timer.reset();
             hit_composer.after_timer.reset();
@@ -158,6 +163,17 @@ fn attack_system(
             0 => {
                 hit_composer.timer.tick(time.delta());
                 if (hit_composer.timer.just_finished()) {
+                    commands.spawn((
+                        AudioPlayer::new(sound_asset.swoosh.clone()),
+                        Transform::from_translation(transform.translation),
+                        PlaybackSettings {
+                            mode: PlaybackMode::Despawn,
+                            spatial: true,
+
+                            ..Default::default()
+                        },
+                        SceneObject,
+                    ));
                     commands.entity(entity).insert(Hitting {});
                     if let Ok(mut anim) = animation_query.get_mut(entity) {
                         anim.running = 2;

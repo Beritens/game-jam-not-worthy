@@ -13,7 +13,10 @@ mod summoning;
 mod ui_stuff;
 
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
-use crate::asset_load::{CutSceneArt, EnemySprite, EnvironmentArt, SkeletonSprite, SwordAnimation};
+use crate::asset_load::{
+    CutSceneArt, EnemySounds, EnemySprite, EnvironmentArt, PlayerSounds, SkeletonSprite,
+    SwordAnimation,
+};
 use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
 use crate::game_manager::GameManagerPlugin;
@@ -75,6 +78,8 @@ fn main() {
             .load_collection::<SwordAnimation>()
             .load_collection::<EnvironmentArt>()
             .load_collection::<CutSceneArt>()
+            .load_collection::<EnemySounds>()
+            .load_collection::<PlayerSounds>()
             // .load_collection::<DebugSprite>()
             .load_collection::<EnemySprite>()
             .load_collection::<SkeletonSprite>(),

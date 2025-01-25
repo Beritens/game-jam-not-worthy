@@ -1,4 +1,5 @@
 use bevy::asset::Handle;
+use bevy::audio::AudioSource;
 use bevy::image::Image;
 use bevy::prelude::{Resource, TextureAtlasLayout};
 use bevy_asset_loader::asset_collection::AssetCollection;
@@ -82,4 +83,18 @@ pub struct EnvironmentArt {
 pub struct CutSceneArt {
     #[asset(path = "cut_scene.png")]
     pub cut_scene: Handle<Image>,
+}
+
+#[derive(AssetCollection, Resource)]
+pub struct EnemySounds {
+    #[asset(path = "sounds/swoosh.ogg")]
+    pub swoosh: Handle<AudioSource>,
+    #[asset(path = "sounds/steps.ogg")]
+    pub steps: Handle<AudioSource>,
+}
+
+#[derive(AssetCollection, Resource)]
+pub struct PlayerSounds {
+    #[asset(path = "sounds/swoosh.ogg")]
+    pub swoosh: Handle<AudioSource>,
 }

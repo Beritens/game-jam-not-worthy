@@ -14,6 +14,7 @@ use avian2d::collision::{Collider, LayerMask};
 use avian2d::prelude::{LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
 use bevy::asset::Handle;
+use bevy::audio::AudioPlayer;
 use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{

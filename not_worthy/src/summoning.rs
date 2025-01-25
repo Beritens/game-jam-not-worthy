@@ -1,5 +1,5 @@
 use crate::animation::{Animation, AnimationManager};
-use crate::asset_load::{EnemySprite, SkeletonSprite};
+use crate::asset_load::{EnemySounds, EnemySprite, SkeletonSprite};
 use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
@@ -133,7 +133,7 @@ pub fn spawn_player(
             Health::from_health(1.0),
             Hitter {
                 knockback: 2.0,
-                damage: 2.0,
+                damage: 1.0,
                 hit_box: Vec2::new(1.0, 1.0),
                 offset: Vec2::new(0.5, 0.0),
                 hit_mask: 1,

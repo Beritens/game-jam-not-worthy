@@ -1,5 +1,5 @@
 use crate::animation::AnimationTimer;
-use crate::asset_load::{CutSceneArt, EnvironmentArt, SkeletonSprite, SwordAnimation};
+use crate::asset_load::{CutSceneArt, EnemySounds, EnvironmentArt, SkeletonSprite, SwordAnimation};
 use crate::combat::CombatPlugin;
 use crate::game_state::GameState;
 use crate::spawning::Spawner;
@@ -7,14 +7,17 @@ use crate::summoning::spawn_player;
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::{App, Main, Plugin, Startup, Update};
+use bevy::asset::ErasedAssetLoader;
+use bevy::audio::{AudioPlayer, AudioSource, PlaybackMode, PlaybackSettings, Volume};
 use bevy::color::Color;
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::math::{Vec2, Vec3};
 use bevy::pbr::{AmbientLight, PointLight};
 use bevy::prelude::{
-    default, in_state, AlphaMode, Camera, Camera3d, Commands, Component, DespawnRecursiveExt,
-    Entity, EventReader, GlobalTransform, IntoSystemConfigs, OnEnter, OnExit, Query, Res,
-    SystemSet, TextureAtlas, Timer, TimerMode, Transform, Window, With, Without,
+    default, in_state, AlphaMode, AssetServer, AudioBundle, Camera, Camera3d, Commands, Component,
+    DespawnRecursiveExt, Entity, EventReader, GlobalTransform, Handle, IntoSystemConfigs,
+    LinearRgba, OnEnter, OnExit, Query, Res, SystemSet, TextureAtlas, Timer, TimerMode, Transform,
+    Window, With, Without,
 };
 use bevy::window::PrimaryWindow;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
@@ -45,8 +48,14 @@ impl Plugin for LevelLoadingPlugin {
             OnEnter(GameState::CutScene),
             (setup_cut_scene.run_if(in_state(GameState::CutScene)),),
         );
+
+        app.add_systems(
+            OnEnter(GameState::Loading),
+            (setup_loading.run_if(in_state(GameState::Loading)),),
+        );
         app.add_systems(Startup, setup_necessary);
         app.add_systems(OnExit(GameState::Menu), (delete_everything));
+        app.add_systems(OnExit(GameState::Loading), (delete_everything));
         app.add_systems(OnExit(GameState::InGame), (delete_everything));
     }
 }
@@ -59,7 +68,28 @@ fn setup(
     mut commands: Commands,
     skel_asset: Res<SkeletonSprite>,
     mut sprite_params: Sprite3dParams,
+    asset_server: Res<AssetServer>,
+    enemy_sounds: Res<EnemySounds>,
 ) {
+    let music: Handle<AudioSource> = asset_server.load("music/GrumpySworrd_intense.wav");
+    commands.spawn((
+        AudioPlayer::new(music),
+        PlaybackSettings {
+            volume: Volume::new(0.4),
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+        SceneObject,
+    ));
+    commands.spawn((
+        AudioPlayer::new(enemy_sounds.steps.clone()),
+        PlaybackSettings {
+            volume: Volume::new(1.0),
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+        SceneObject,
+    ));
     // commands.spawn((
     //     Camera3d::default(),
     //     MainCamera,
@@ -96,7 +126,7 @@ fn setup(
         Transform::from_xyz(30.0, 2.00, 0.0),
         Spawner {
             preheat: 6.0,
-            timer: Timer::new(Duration::from_secs_f32(3.0), TimerMode::Repeating),
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
         },
         SceneObject,
     ));
@@ -104,8 +134,8 @@ fn setup(
     commands.spawn((
         Transform::from_xyz(-30.0, 2.00, 0.0),
         Spawner {
-            preheat: 6.0,
-            timer: Timer::new(Duration::from_secs_f32(3.0), TimerMode::Repeating),
+            preheat: 4.0,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
         },
         SceneObject,
     ));
@@ -123,19 +153,40 @@ fn setup_necessary(mut commands: Commands) {
     //     Transform::from_xyz(0.0, 2.00, 10.0),
     // ));
 }
+fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let music: Handle<AudioSource> = asset_server.load("music/GrumpySworrd_LoadScreen.wav");
+    commands.spawn((
+        AudioPlayer::new(music),
+        PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+        SceneObject,
+    ));
+}
 
-fn setup_menu(mut commands: Commands) {
+fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneObject,
         Camera3d::default(),
         MainCamera,
         Transform::from_xyz(0.0, 2.00, 10.0),
     ));
+    let music: Handle<AudioSource> = asset_server.load("music/GrumpySworrd_LoadScreen.wav");
+    commands.spawn((
+        AudioPlayer::new(music),
+        PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+        SceneObject,
+    ));
 }
 
 fn setup_cut_scene(
     mut commands: Commands,
     cut_scene_asset: Res<CutSceneArt>,
+    asset_server: Res<AssetServer>,
     mut sprite_params: Sprite3dParams,
 ) {
     commands.spawn((
@@ -156,6 +207,16 @@ fn setup_cut_scene(
         SceneObject,
         Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(1.0, 1.0, 1.0)),
         unsheathed.bundle(&mut sprite_params),
+    ));
+
+    let sound: Handle<AudioSource> = asset_server.load("music/draw_sword.wav");
+    commands.spawn((
+        AudioPlayer::new(sound),
+        PlaybackSettings {
+            mode: PlaybackMode::Despawn,
+            ..Default::default()
+        },
+        SceneObject,
     ));
 }
 fn summon_world(

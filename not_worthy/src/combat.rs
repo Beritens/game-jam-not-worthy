@@ -1,12 +1,16 @@
+use crate::asset_load::{EnemySounds, PlayerSounds};
+use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
+use crate::level_loading::SceneObject;
 use crate::movement::{Controllable, GameLayer};
 use crate::player_states::AttackNow;
 use avian2d::prelude::{Collider, LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
+use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
 use bevy::math::{Quat, Vec2};
 use bevy::prelude::{
-    info, Commands, Component, Entity, Gamepad, GamepadAxis, GamepadButton, IntoSystemConfigs,
-    Query, Res, Startup, SystemSet, Time, Timer, Transform, Vec3Swizzles, With,
+    in_state, info, Commands, Component, Entity, Gamepad, GamepadAxis, GamepadButton,
+    IntoSystemConfigs, Query, Res, Startup, SystemSet, Time, Timer, Transform, Vec3Swizzles, With,
 };
 use bevy::time::TimerMode;
 use leafwing_input_manager::prelude::ActionState;
@@ -24,8 +28,10 @@ impl Plugin for CombatPlugin {
         app.add_systems(
             Update,
             ((
-                player_hit,
-                hit_system.after(player_hit),
+                player_hit.run_if(in_state(GameState::InGame)),
+                hit_system
+                    .after(player_hit)
+                    .run_if(in_state(GameState::InGame)),
                 enemy_take_damage.after(hit_system),
             )
                 .in_set(CombatSet)),
@@ -37,7 +43,7 @@ impl Plugin for CombatPlugin {
 fn setup_player_attacks(mut commands: Commands) {
     commands.spawn((
         Cooldown {
-            timer: Timer::new(Duration::from_secs_f32(0.3), TimerMode::Once),
+            timer: Timer::new(Duration::from_secs_f32(0.5), TimerMode::Once),
         },
         PlayerHit {},
     ));
@@ -102,6 +108,7 @@ fn player_hit(
     input_query: Query<(&ActionState<Action>), With<BasicControl>>,
     mut cooldown_query: Query<(&mut Cooldown), With<PlayerHit>>,
     mut query: Query<(&Transform, &mut Direction, Entity), (With<Hitter>, With<Controllable>)>,
+    sound_asset: Res<PlayerSounds>,
 ) {
     let mut dirr = 0.0;
     let mut attack = false;
@@ -125,6 +132,16 @@ fn player_hit(
         } else {
             attack = false;
         }
+    }
+    if (attack) {
+        commands.spawn((
+            AudioPlayer::new(sound_asset.swoosh.clone()),
+            PlaybackSettings {
+                mode: PlaybackMode::Despawn,
+                ..Default::default()
+            },
+            SceneObject,
+        ));
     }
     if (dirr.abs() > 0.0 || attack) {
         for (transform, mut direction, entity) in query.iter_mut() {
@@ -184,6 +201,7 @@ fn hit_system(
             transform.translation.xy(),
             &hitter.spatial_query_filter,
         );
+
         commands.entity(entity).remove::<Hitting>();
     }
 }
