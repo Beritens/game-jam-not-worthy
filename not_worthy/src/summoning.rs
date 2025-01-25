@@ -1,6 +1,6 @@
 use crate::animation::{Animation, AnimationManager};
 use crate::asset_load::{EnemySounds, EnemySprite, SkeletonSprite};
-use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
+use crate::combat::{Cooldown, Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
@@ -19,15 +19,16 @@ use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component,
-    DespawnRecursiveExt, Entity, IntoSystemConfigs, PreUpdate, Query, Res, TextureAtlasLayout,
-    Timer, Transform, Visibility, With,
+    DespawnRecursiveExt, Entity, IntoSystemConfigs, OnEnter, PreUpdate, Query, Res,
+    TextureAtlasLayout, Time, Timer, Transform, Visibility, With,
 };
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
 use rand::Rng;
-use std::collections::VecDeque;
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, VecDeque};
 use std::f32::consts::PI;
 use std::time::Duration;
 
@@ -36,25 +37,97 @@ pub struct SummoningPlugin;
 impl Plugin for SummoningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, arise_system.run_if(in_state(GameState::InGame)));
+        app.add_systems(
+            OnEnter(GameState::InGame),
+            setup_arise_system.run_if(in_state(GameState::InGame)),
+        );
         // app.add_systems(PreUpdate, die_system.run_if(in_state(GameState::Main)));
         // add things to your app here
     }
 }
 
+#[derive(Component)]
+pub struct AriseSettings {
+    num: usize,
+}
+
+fn setup_arise_system(mut commands: Commands) {
+    commands.spawn((
+        SceneObject,
+        AriseSettings { num: 2 },
+        Cooldown {
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
+        },
+    ));
+}
+
+struct EntDist {
+    entity: Entity,
+    dist: f32,
+}
+
+impl PartialEq<Self> for EntDist {
+    fn eq(&self, other: &Self) -> bool {
+        self.dist == other.dist
+    }
+}
+
+impl Eq for EntDist {}
+
+impl PartialOrd<Self> for EntDist {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.dist.partial_cmp(&other.dist)
+    }
+}
+
+impl Ord for EntDist {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 fn arise_system(
+    time: Res<Time>,
     mut commands: Commands,
     input_query: Query<(&ActionState<Action>), With<BasicControl>>,
     deceased_query: Query<(Entity, &Transform), With<Deceased>>,
     skelet_asset: Res<SkeletonSprite>,
     mut sprite_params: Sprite3dParams,
+    mut arise_settings_query: Query<(&AriseSettings, &mut Cooldown)>,
 ) {
     let mut summon = false;
     for (action) in &input_query {
         if (action.just_pressed(&Action::Special)) {
             summon = true;
         }
+    }
+
+    let Ok((arise_settings, mut cooldown)) = arise_settings_query.get_single_mut() else {
+        return;
+    };
+
+    cooldown.timer.tick(time.delta());
+    if (cooldown.timer.finished()) {
         if (summon) {
-            for (entity, transform) in deceased_query.iter() {
+            cooldown.timer.reset();
+        }
+    } else {
+        summon = false;
+    }
+    if (summon) {
+        let mut max_heap = BinaryHeap::new();
+        for (entity, transform) in deceased_query.iter() {
+            let entdist = EntDist {
+                entity,
+                dist: transform.translation.x.abs(),
+            };
+            max_heap.push(entdist);
+            if (max_heap.len() > arise_settings.num) {
+                max_heap.pop();
+            }
+        }
+        for x in &max_heap {
+            if let Ok((entity, transform)) = deceased_query.get(x.entity) {
                 spawn_player(
                     &mut commands,
                     Vec3::new(
