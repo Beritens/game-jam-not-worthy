@@ -98,3 +98,36 @@ pub struct PlayerSounds {
     #[asset(path = "sounds/swoosh.ogg")]
     pub swoosh: Handle<AudioSource>,
 }
+
+#[derive(AssetCollection, Resource)]
+pub struct MusicAssets {
+    #[asset(path = "music/GrumpySworrd_instance.wav")]
+    pub shop: Handle<AudioSource>,
+    #[asset(path = "music/GrumpySworrd_LoadScreen.wav")]
+    pub menu: Handle<AudioSource>,
+    #[asset(path = "music/GrumpySworrd_intense.wav")]
+    pub in_game: Handle<AudioSource>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct ShopDisplay {
+    pub cost: i32,
+    pub text: String,
+}
+#[derive(serde::Deserialize)]
+pub struct ShopItem {
+    pub name: String,
+    pub shop_displays: Vec<ShopDisplay>,
+}
+#[derive(serde::Deserialize, bevy::asset::Asset, bevy::reflect::TypePath)]
+pub struct GameInfos {
+    pub shop_items: Vec<ShopItem>,
+    pub knockback: Vec<f32>,
+}
+// #[derive(Resource)]
+// struct LevelHandle(Handle<crate::Level>);
+#[derive(AssetCollection, Resource)]
+pub struct GameData {
+    #[asset(path = "game.data.json")]
+    pub data: Handle<GameInfos>,
+}

@@ -1,9 +1,12 @@
 use crate::animation::AnimationTimer;
-use crate::asset_load::{CutSceneArt, EnemySounds, EnvironmentArt, SkeletonSprite, SwordAnimation};
+use crate::asset_load::{
+    CutSceneArt, EnemySounds, EnemySprite, EnvironmentArt, MusicAssets, SkeletonSprite,
+    SwordAnimation,
+};
 use crate::combat::CombatPlugin;
 use crate::game_state::GameState;
-use crate::spawning::Spawner;
-use crate::summoning::spawn_player;
+use crate::spawning::{EnemyType, Spawner};
+use crate::summoning::{spawn_deceased, spawn_player};
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::{App, Main, Plugin, Startup, Update};
@@ -16,8 +19,8 @@ use bevy::pbr::{AmbientLight, PointLight};
 use bevy::prelude::{
     default, in_state, AlphaMode, AssetServer, AudioBundle, Camera, Camera3d, Commands, Component,
     DespawnRecursiveExt, Entity, EventReader, GlobalTransform, Handle, IntoSystemConfigs,
-    LinearRgba, OnEnter, OnExit, Query, Res, SystemSet, TextureAtlas, Timer, TimerMode, Transform,
-    Window, With, Without,
+    LinearRgba, NextState, OnEnter, OnExit, Query, Res, ResMut, SystemSet, TextureAtlas, Time,
+    Timer, TimerMode, Transform, Window, With, Without,
 };
 use bevy::window::PrimaryWindow;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
@@ -50,13 +53,29 @@ impl Plugin for LevelLoadingPlugin {
         );
 
         app.add_systems(
+            Update,
+            (cut_scene_wait_system.run_if(in_state(GameState::CutScene)),),
+        );
+
+        app.add_systems(
             OnEnter(GameState::Loading),
             (setup_loading.run_if(in_state(GameState::Loading)),),
         );
+
+        app.add_systems(
+            OnEnter(GameState::Shop),
+            (
+                setup_shop.run_if(in_state(GameState::Shop)),
+                summon_world.run_if(in_state(GameState::Shop)),
+            ),
+        );
+
         app.add_systems(Startup, setup_necessary);
         app.add_systems(OnExit(GameState::Menu), (delete_everything));
         app.add_systems(OnExit(GameState::Loading), (delete_everything));
         app.add_systems(OnExit(GameState::InGame), (delete_everything));
+        app.add_systems(OnExit(GameState::CutScene), (delete_everything));
+        app.add_systems(OnExit(GameState::Shop), (delete_everything));
     }
 }
 #[derive(Component)]
@@ -66,14 +85,14 @@ pub struct SceneObject;
 struct MainCamera;
 fn setup(
     mut commands: Commands,
-    skel_asset: Res<SkeletonSprite>,
+    hero_asset: Res<EnemySprite>,
     mut sprite_params: Sprite3dParams,
     asset_server: Res<AssetServer>,
     enemy_sounds: Res<EnemySounds>,
+    music_assets: Res<MusicAssets>,
 ) {
-    let music: Handle<AudioSource> = asset_server.load("music/GrumpySworrd_intense.wav");
     commands.spawn((
-        AudioPlayer::new(music),
+        AudioPlayer::new(music_assets.in_game.clone()),
         PlaybackSettings {
             volume: Volume::new(0.4),
             mode: PlaybackMode::Loop,
@@ -109,10 +128,11 @@ fn setup(
         SceneObject,
     ));
 
-    spawn_player(
+    spawn_deceased(
         &mut commands,
-        Vec3::new(1.5, 1.0, 0.0),
-        &skel_asset,
+        1.5,
+        &hero_asset.image,
+        &hero_asset.layout,
         &mut sprite_params,
     );
 
@@ -125,8 +145,9 @@ fn setup(
     commands.spawn((
         Transform::from_xyz(30.0, 2.00, 0.0),
         Spawner {
-            preheat: 6.0,
+            preheat: 10.0,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BASIC,
         },
         SceneObject,
     ));
@@ -134,8 +155,9 @@ fn setup(
     commands.spawn((
         Transform::from_xyz(-30.0, 2.00, 0.0),
         Spawner {
-            preheat: 4.0,
+            preheat: 6.0,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BASIC,
         },
         SceneObject,
     ));
@@ -165,22 +187,46 @@ fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_menu(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    music_assets: Res<MusicAssets>,
+) {
     commands.spawn((
         SceneObject,
         Camera3d::default(),
         MainCamera,
         Transform::from_xyz(0.0, 2.00, 10.0),
     ));
-    let music: Handle<AudioSource> = asset_server.load("music/GrumpySworrd_LoadScreen.wav");
     commands.spawn((
-        AudioPlayer::new(music),
+        AudioPlayer::new(music_assets.menu.clone()),
         PlaybackSettings {
             mode: PlaybackMode::Loop,
             ..Default::default()
         },
         SceneObject,
     ));
+}
+
+fn setup_shop(mut commands: Commands, music_assets: Res<MusicAssets>) {
+    commands.spawn((
+        SceneObject,
+        Camera3d::default(),
+        MainCamera,
+        Transform::from_xyz(0.0, 2.00, 10.0),
+    ));
+    commands.spawn((
+        AudioPlayer::new(music_assets.shop.clone()),
+        PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+        SceneObject,
+    ));
+}
+#[derive(Component)]
+struct CutSceneTime {
+    timer: Timer,
 }
 
 fn setup_cut_scene(
@@ -207,6 +253,9 @@ fn setup_cut_scene(
         SceneObject,
         Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(1.0, 1.0, 1.0)),
         unsheathed.bundle(&mut sprite_params),
+        CutSceneTime {
+            timer: Timer::new(Duration::from_secs_f32(2.0), TimerMode::Once),
+        },
     ));
 
     let sound: Handle<AudioSource> = asset_server.load("music/draw_sword.wav");
@@ -218,6 +267,19 @@ fn setup_cut_scene(
         },
         SceneObject,
     ));
+}
+
+fn cut_scene_wait_system(
+    time: Res<Time>,
+    mut cut_scne_query: Query<&mut CutSceneTime>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
+    if let Ok(mut cut_scene) = cut_scne_query.get_single_mut() {
+        cut_scene.timer.tick(time.delta());
+        if cut_scene.timer.just_finished() {
+            game_state.set(GameState::Shop);
+        }
+    }
 }
 fn summon_world(
     mut commands: Commands,

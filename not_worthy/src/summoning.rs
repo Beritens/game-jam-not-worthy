@@ -1,6 +1,6 @@
 use crate::animation::{Animation, AnimationManager};
-use crate::asset_load::{EnemySounds, EnemySprite, SkeletonSprite};
-use crate::combat::{Cooldown, Dead, Direction, Health, Hitter, Opfer};
+use crate::asset_load::{EnemySounds, EnemySprite, GameData, GameInfos, SkeletonSprite};
+use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
@@ -9,21 +9,24 @@ use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
 use crate::player_states::{PlayerIdleState, PlayerStateMaschine, WalkAnim};
+use crate::state_handling::get_progress;
 use avian2d::collision::Collider;
 use avian2d::prelude::{
     LayerMask, LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter,
 };
 use bevy::app::{App, Plugin, Update};
-use bevy::asset::Handle;
+use bevy::asset::{Assets, Handle};
 use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component,
-    DespawnRecursiveExt, Entity, IntoSystemConfigs, OnEnter, PreUpdate, Query, Res,
+    DespawnRecursiveExt, Entity, IntoSystemConfigs, OnEnter, PreUpdate, Query, Res, ResMut,
     TextureAtlasLayout, Time, Timer, Transform, Visibility, With,
 };
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
+use bevy::utils::tracing::Instrument;
+use bevy_pkv::PkvStore;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
 use rand::Rng;
@@ -48,15 +51,35 @@ impl Plugin for SummoningPlugin {
 
 #[derive(Component)]
 pub struct AriseSettings {
+    cooldown: Timer,
     num: usize,
+    knockback: f32,
+    damage: f32,
+    speed: f32,
 }
 
-fn setup_arise_system(mut commands: Commands) {
+fn setup_arise_system(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    mut game_datas: ResMut<Assets<GameInfos>>,
+    mut pkv: ResMut<PkvStore>,
+) {
+    let knockback_level = get_progress(&mut pkv, "knockback");
+    let mut knockback = 0.0;
+    if let Some(game_data) = game_datas.get(game_data.data.id()) {
+        knockback = game_data.knockback[knockback_level as usize];
+    }
+
+    let mut cooldown = Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once);
+    cooldown.set_elapsed(Duration::from_secs_f32(5.0));
     commands.spawn((
         SceneObject,
-        AriseSettings { num: 2 },
-        Cooldown {
-            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
+        AriseSettings {
+            num: 2,
+            cooldown,
+            knockback,
+            damage: 1.0,
+            speed: 2.5,
         },
     ));
 }
@@ -86,6 +109,12 @@ impl Ord for EntDist {
     }
 }
 
+struct PlayerSettings {
+    knockback: f32,
+    speed: f32,
+    damage: f32,
+}
+
 fn arise_system(
     time: Res<Time>,
     mut commands: Commands,
@@ -93,7 +122,7 @@ fn arise_system(
     deceased_query: Query<(Entity, &Transform), With<Deceased>>,
     skelet_asset: Res<SkeletonSprite>,
     mut sprite_params: Sprite3dParams,
-    mut arise_settings_query: Query<(&AriseSettings, &mut Cooldown)>,
+    mut arise_settings_query: Query<(&mut AriseSettings)>,
 ) {
     let mut summon = false;
     for (action) in &input_query {
@@ -102,19 +131,24 @@ fn arise_system(
         }
     }
 
-    let Ok((arise_settings, mut cooldown)) = arise_settings_query.get_single_mut() else {
+    let Ok(mut arise_settings) = arise_settings_query.get_single_mut() else {
         return;
     };
 
-    cooldown.timer.tick(time.delta());
-    if (cooldown.timer.finished()) {
+    arise_settings.cooldown.tick(time.delta());
+    if (arise_settings.cooldown.finished()) {
         if (summon) {
-            cooldown.timer.reset();
+            arise_settings.cooldown.reset();
         }
     } else {
         summon = false;
     }
     if (summon) {
+        let player_settings = PlayerSettings {
+            knockback: arise_settings.knockback,
+            speed: arise_settings.speed,
+            damage: arise_settings.damage,
+        };
         let mut max_heap = BinaryHeap::new();
         for (entity, transform) in deceased_query.iter() {
             let entdist = EntDist {
@@ -136,6 +170,7 @@ fn arise_system(
                         rand::thread_rng().gen_range(-0.3..0.3),
                     ),
                     &skelet_asset,
+                    &player_settings,
                     &mut sprite_params,
                 );
                 commands.entity(entity).despawn();
@@ -148,6 +183,7 @@ pub fn spawn_player(
     commands: &mut Commands,
     pos: Vec3,
     asset: &SkeletonSprite,
+    player_settings: &PlayerSettings,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
     let sprite = Sprite3dBuilder {
@@ -196,7 +232,9 @@ pub fn spawn_player(
             Transform::from_translation(pos),
             RigidBody::Dynamic,
             Collider::circle(0.5),
-            Controllable { speed: 3.0 },
+            Controllable {
+                speed: player_settings.speed,
+            },
             get_player_collision_layers(),
             Direction { direction: -1.0 },
             Opfer {
@@ -205,8 +243,8 @@ pub fn spawn_player(
             },
             Health::from_health(1.0),
             Hitter {
-                knockback: 2.0,
-                damage: 1.0,
+                knockback: player_settings.knockback,
+                damage: player_settings.damage,
                 hit_box: Vec2::new(1.0, 1.0),
                 offset: Vec2::new(0.5, 0.0),
                 hit_mask: 1,

@@ -42,8 +42,8 @@ impl Plugin for CombatPlugin {
 
 fn setup_player_attacks(mut commands: Commands) {
     commands.spawn((
-        Cooldown {
-            timer: Timer::new(Duration::from_secs_f32(0.5), TimerMode::Once),
+        PlayerCombatSettings {
+            cooldown: Timer::new(Duration::from_secs_f32(0.5), TimerMode::Once),
         },
         PlayerHit {},
     ));
@@ -96,9 +96,10 @@ pub struct Opfer {
 }
 
 #[derive(Component)]
-pub struct Cooldown {
-    pub timer: Timer,
+pub struct PlayerCombatSettings {
+    pub cooldown: Timer,
 }
+
 #[derive(Component)]
 pub struct PlayerHit {}
 
@@ -106,7 +107,7 @@ fn player_hit(
     time: Res<Time>,
     mut commands: Commands,
     input_query: Query<(&ActionState<Action>), With<BasicControl>>,
-    mut cooldown_query: Query<(&mut Cooldown), With<PlayerHit>>,
+    mut player_setup_query: Query<(&mut PlayerCombatSettings), With<PlayerHit>>,
     mut query: Query<(&Transform, &mut Direction, Entity), (With<Hitter>, With<Controllable>)>,
     sound_asset: Res<PlayerSounds>,
 ) {
@@ -123,15 +124,16 @@ fn player_hit(
         }
     }
 
-    for mut cooldown in cooldown_query.iter_mut() {
-        cooldown.timer.tick(time.delta());
-        if (cooldown.timer.finished()) {
-            if (attack) {
-                cooldown.timer.reset();
-            }
-        } else {
-            attack = false;
+    let Ok((mut player_combat_settings)) = player_setup_query.get_single_mut() else {
+        return;
+    };
+    player_combat_settings.cooldown.tick(time.delta());
+    if (player_combat_settings.cooldown.finished()) {
+        if (attack) {
+            player_combat_settings.cooldown.reset();
         }
+    } else {
+        attack = false;
     }
     if (attack) {
         commands.spawn((
