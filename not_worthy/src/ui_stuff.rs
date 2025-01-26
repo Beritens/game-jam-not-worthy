@@ -2,7 +2,7 @@ use crate::asset_load::{GameData, GameInfos, ShopItem};
 use crate::game_state::GameState;
 use crate::game_state::GameState::Shop;
 use crate::level_loading::SceneObject;
-use crate::state_handling::{get_progress, store_progress};
+use crate::state_handling::{get_sotred_value, store_value};
 use bevy::app::{App, Plugin, Update};
 use bevy::asset::{AssetServer, Assets};
 use bevy::color::palettes::css::CRIMSON;
@@ -60,14 +60,17 @@ fn buy(
     game_datas: &ResMut<Assets<GameInfos>>,
     pkv: &mut ResMut<PkvStore>,
 ) {
-    let curr_level = get_progress(pkv, key);
+    let curr_level = get_sotred_value(pkv, key);
     let Some(game_data) = game_datas.get(game_data_res.data.id()) else {
         return;
     };
     let cost = game_data.shop_items[shop_item as usize].shop_displays[curr_level as usize].cost;
 
+    let curr_score = get_sotred_value(pkv, "score");
+    store_value(pkv, "score", curr_score - cost);
+
     //remove money
-    store_progress(pkv, key, curr_level + 1);
+    store_value(pkv, key, curr_level + 1);
 }
 
 #[derive(Component)]
@@ -120,6 +123,7 @@ fn get_shop_item(
     cost: i32,
     action: ShopButtonAction,
     disabled: bool,
+    too_expensive: bool,
 ) {
     let button_node: Node = Node {
         width: Val::Px(300.0),
@@ -139,7 +143,7 @@ fn get_shop_item(
         ..default()
     };
 
-    let text_color = if disabled {
+    let text_color = if disabled || too_expensive {
         DISABLED_TEXT_COLOR
     } else {
         TEXT_COLOR
@@ -164,75 +168,41 @@ fn get_shop_item(
                 label_text_font.clone(),
                 TextColor(text_color),
             ));
-            if (disabled) {
+            let mut button =
+                parent.spawn((SceneObject, button_node, BackgroundColor(NORMAL_BUTTON)));
+            button.with_children(|parent| {
+                // let icon = asset_server.load("textures/Game Icons/right.png");
+                // parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
                 parent
                     .spawn((
                         SceneObject,
-                        Button,
-                        button_node,
-                        BackgroundColor(NORMAL_BUTTON),
+                        Node {
+                            width: Val::Percent(100.0),
+                            flex_direction: FlexDirection::Row,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::SpaceBetween,
+                            ..default()
+                        },
                     ))
                     .with_children(|parent| {
-                        // let icon = asset_server.load("textures/Game Icons/right.png");
-                        // parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
-                        parent
-                            .spawn((
+                        parent.spawn((
+                            SceneObject,
+                            Text::new(text),
+                            button_text_font.clone(),
+                            TextColor(text_color),
+                        ));
+                        if (!disabled) {
+                            parent.spawn((
                                 SceneObject,
-                                Node {
-                                    width: Val::Percent(100.0),
-                                    flex_direction: FlexDirection::Row,
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::SpaceBetween,
-                                    ..default()
-                                },
-                            ))
-                            .with_children(|parent| {
-                                parent.spawn((
-                                    SceneObject,
-                                    Text::new(text),
-                                    button_text_font.clone(),
-                                    TextColor(text_color),
-                                ));
-                            });
+                                Text::new(cost.to_string()),
+                                button_text_font.clone(),
+                                TextColor(text_color),
+                            ));
+                        }
                     });
-            } else {
-                parent
-                    .spawn((
-                        SceneObject,
-                        Button,
-                        button_node,
-                        BackgroundColor(NORMAL_BUTTON),
-                        action,
-                    ))
-                    .with_children(|parent| {
-                        // let icon = asset_server.load("textures/Game Icons/right.png");
-                        // parent.spawn((ImageNode::new(icon), button_icon_node.clone()));
-                        parent
-                            .spawn((
-                                SceneObject,
-                                Node {
-                                    width: Val::Percent(100.0),
-                                    flex_direction: FlexDirection::Row,
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::SpaceBetween,
-                                    ..default()
-                                },
-                            ))
-                            .with_children(|parent| {
-                                parent.spawn((
-                                    SceneObject,
-                                    Text::new(text),
-                                    button_text_font.clone(),
-                                    TextColor(text_color),
-                                ));
-                                parent.spawn((
-                                    SceneObject,
-                                    Text::new(cost.to_string()),
-                                    button_text_font.clone(),
-                                    TextColor(text_color),
-                                ));
-                            });
-                    });
+            });
+            if (!disabled && !too_expensive) {
+                button.insert((Button, action));
             }
         });
 }
@@ -269,12 +239,14 @@ fn setup_shop(
         }
     }
 
-    let knockback_level = get_progress(&mut pkv, "knockback");
-    let damage_level = get_progress(&mut pkv, "damage");
-    let speed_level = get_progress(&mut pkv, "speed");
-    let arise_cooldown_level = get_progress(&mut pkv, "arise_cooldown");
-    let arise_count_level = get_progress(&mut pkv, "arise_count");
-    let attack_cooldown_level = get_progress(&mut pkv, "attack_cooldown");
+    let knockback_level = get_sotred_value(&mut pkv, "knockback");
+    let damage_level = get_sotred_value(&mut pkv, "damage");
+    let speed_level = get_sotred_value(&mut pkv, "speed");
+    let arise_cooldown_level = get_sotred_value(&mut pkv, "arise_cooldown");
+    let arise_count_level = get_sotred_value(&mut pkv, "arise_count");
+    let attack_cooldown_level = get_sotred_value(&mut pkv, "attack_cooldown");
+
+    let curr_score = get_sotred_value(&mut pkv, "score");
     let Some(game_data) = game_datas.get(game_data_res.data.id()) else {
         return;
     };
@@ -318,84 +290,88 @@ fn setup_shop(
                         },
                     ));
 
+                    let knockback_cost =
+                        game_data.shop_items[0].shop_displays[knockback_level as usize].cost;
                     get_shop_item(
                         parent,
                         game_data.shop_items[0].name.clone(),
                         game_data.shop_items[0].shop_displays[knockback_level as usize]
                             .text
                             .clone(),
-                        game_data.shop_items[0].shop_displays[knockback_level as usize]
-                            .cost
-                            .clone(),
+                        knockback_cost,
                         ShopButtonAction::KNOCKBACK,
-                        game_data.shop_items[0].shop_displays[knockback_level as usize].cost < 0,
+                        knockback_cost < 0,
+                        knockback_cost > curr_score,
                     );
 
+                    let damage_cost =
+                        game_data.shop_items[1].shop_displays[damage_level as usize].cost;
                     get_shop_item(
                         parent,
                         game_data.shop_items[1].name.clone(),
                         game_data.shop_items[1].shop_displays[damage_level as usize]
                             .text
                             .clone(),
-                        game_data.shop_items[1].shop_displays[damage_level as usize]
-                            .cost
-                            .clone(),
+                        damage_cost,
                         ShopButtonAction::DAMAGE,
-                        game_data.shop_items[1].shop_displays[damage_level as usize].cost < 0,
+                        damage_cost < 0,
+                        damage_cost > curr_score,
                     );
 
+                    let speed_cost =
+                        game_data.shop_items[2].shop_displays[speed_level as usize].cost;
                     get_shop_item(
                         parent,
                         game_data.shop_items[2].name.clone(),
                         game_data.shop_items[2].shop_displays[speed_level as usize]
                             .text
                             .clone(),
-                        game_data.shop_items[2].shop_displays[speed_level as usize]
-                            .cost
-                            .clone(),
+                        speed_cost,
                         ShopButtonAction::SPEED,
-                        game_data.shop_items[2].shop_displays[speed_level as usize].cost < 0,
+                        speed_cost < 0,
+                        speed_cost > curr_score,
                     );
 
+                    let arise_cooldown_cost =
+                        game_data.shop_items[3].shop_displays[arise_cooldown_level as usize].cost;
                     get_shop_item(
                         parent,
                         game_data.shop_items[3].name.clone(),
                         game_data.shop_items[3].shop_displays[arise_cooldown_level as usize]
                             .text
                             .clone(),
-                        game_data.shop_items[3].shop_displays[arise_cooldown_level as usize]
-                            .cost
-                            .clone(),
+                        arise_cooldown_cost,
                         ShopButtonAction::ARISE_COOLDOWN,
-                        game_data.shop_items[3].shop_displays[arise_cooldown_level as usize].cost
-                            < 0,
+                        arise_cooldown_cost < 0,
+                        arise_cooldown_cost > curr_score,
                     );
 
+                    let arise_count_cost =
+                        game_data.shop_items[4].shop_displays[arise_count_level as usize].cost;
                     get_shop_item(
                         parent,
                         game_data.shop_items[4].name.clone(),
                         game_data.shop_items[4].shop_displays[arise_count_level as usize]
                             .text
                             .clone(),
-                        game_data.shop_items[4].shop_displays[arise_count_level as usize]
-                            .cost
-                            .clone(),
+                        arise_count_cost,
                         ShopButtonAction::ARISE_COUNT,
-                        game_data.shop_items[4].shop_displays[arise_count_level as usize].cost < 0,
+                        arise_count_cost < 0,
+                        arise_count_cost > curr_score,
                     );
 
+                    let attack_cooldown_cost =
+                        game_data.shop_items[5].shop_displays[attack_cooldown_level as usize].cost;
                     get_shop_item(
                         parent,
                         game_data.shop_items[5].name.clone(),
                         game_data.shop_items[5].shop_displays[attack_cooldown_level as usize]
                             .text
                             .clone(),
-                        game_data.shop_items[5].shop_displays[attack_cooldown_level as usize]
-                            .cost
-                            .clone(),
+                        attack_cooldown_cost,
                         ShopButtonAction::HIT_COOLDOWN,
-                        game_data.shop_items[5].shop_displays[attack_cooldown_level as usize].cost
-                            < 0,
+                        attack_cooldown_cost < 0,
+                        attack_cooldown_cost > curr_score,
                     );
                 });
 
@@ -406,12 +382,21 @@ fn setup_shop(
                         height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        justify_content: JustifyContent::End,
-                        // margin: UiRect::all(Val::Px(50.0)),
+                        justify_content: JustifyContent::SpaceBetween,
                         ..default()
                     },
                 ))
                 .with_children(|parent| {
+                    parent.spawn((
+                        SceneObject,
+                        Text::new(format!("Current Points: {}", curr_score.to_string())),
+                        button_text_font.clone(),
+                        TextColor(TEXT_COLOR),
+                        Node {
+                            margin: UiRect::all(Val::Px(50.0)),
+                            ..default()
+                        },
+                    ));
                     parent
                         .spawn((
                             SceneObject,

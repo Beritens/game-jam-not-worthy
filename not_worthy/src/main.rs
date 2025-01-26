@@ -15,8 +15,8 @@ mod ui_stuff;
 
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
 use crate::asset_load::{
-    CutSceneArt, EnemySounds, EnemySprite, EnvironmentArt, GameData, GameInfos, MusicAssets,
-    PlayerSounds, SkeletonSprite, SwordAnimation,
+    CutSceneArt, CutSceneSounds, EnemySounds, EnemySprite, EnvironmentArt, GameData, GameInfos,
+    MusicAssets, PlayerSounds, SkeletonSprite, SwordAnimation,
 };
 use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
@@ -80,13 +80,14 @@ fn main() {
 
     app.add_loading_state(
         LoadingState::new(GameState::Loading)
-            .continue_to_state(GameState::Shop)
+            .continue_to_state(GameState::Menu)
             .load_collection::<SwordAnimation>()
             .load_collection::<EnvironmentArt>()
             .load_collection::<CutSceneArt>()
             .load_collection::<GameData>()
             .load_collection::<EnemySounds>()
             .load_collection::<PlayerSounds>()
+            .load_collection::<CutSceneSounds>()
             .load_collection::<MusicAssets>()
             // .load_collection::<DebugSprite>()
             .load_collection::<EnemySprite>()

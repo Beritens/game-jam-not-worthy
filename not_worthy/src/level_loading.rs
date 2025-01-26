@@ -1,7 +1,7 @@
 use crate::animation::AnimationTimer;
 use crate::asset_load::{
-    CutSceneArt, EnemySounds, EnemySprite, EnvironmentArt, MusicAssets, SkeletonSprite,
-    SwordAnimation,
+    CutSceneArt, CutSceneSounds, EnemySounds, EnemySprite, EnvironmentArt, MusicAssets,
+    SkeletonSprite, SwordAnimation,
 };
 use crate::combat::CombatPlugin;
 use crate::game_state::GameState;
@@ -234,6 +234,7 @@ fn setup_cut_scene(
     cut_scene_asset: Res<CutSceneArt>,
     asset_server: Res<AssetServer>,
     mut sprite_params: Sprite3dParams,
+    cut_scene_sounds: Res<CutSceneSounds>,
 ) {
     commands.spawn((
         SceneObject,
@@ -258,9 +259,8 @@ fn setup_cut_scene(
         },
     ));
 
-    let sound: Handle<AudioSource> = asset_server.load("music/draw_sword.wav");
     commands.spawn((
-        AudioPlayer::new(sound),
+        AudioPlayer::new(cut_scene_sounds.draw_sword.clone()),
         PlaybackSettings {
             mode: PlaybackMode::Despawn,
             ..Default::default()

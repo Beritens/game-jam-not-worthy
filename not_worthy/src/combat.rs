@@ -1,18 +1,22 @@
-use crate::asset_load::{EnemySounds, PlayerSounds};
+use crate::asset_load::{EnemySounds, GameData, GameInfos, PlayerSounds};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
 use crate::level_loading::SceneObject;
 use crate::movement::{Controllable, GameLayer};
 use crate::player_states::AttackNow;
+use crate::state_handling::get_sotred_value;
 use avian2d::prelude::{Collider, LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, Plugin, Update};
+use bevy::asset::Assets;
 use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
 use bevy::math::{Quat, Vec2};
 use bevy::prelude::{
     in_state, info, Commands, Component, Entity, Gamepad, GamepadAxis, GamepadButton,
-    IntoSystemConfigs, Query, Res, Startup, SystemSet, Time, Timer, Transform, Vec3Swizzles, With,
+    IntoSystemConfigs, OnEnter, Query, Res, ResMut, Startup, SystemSet, Time, Timer, Transform,
+    Vec3Swizzles, With,
 };
 use bevy::time::TimerMode;
+use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::ActionState;
 use std::collections::VecDeque;
 use std::time::Duration;
@@ -24,7 +28,10 @@ pub struct CombatSet;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_player_attacks);
+        app.add_systems(
+            OnEnter(GameState::InGame),
+            setup_player_attacks.run_if(in_state(GameState::InGame)),
+        );
         app.add_systems(
             Update,
             ((
@@ -40,10 +47,22 @@ impl Plugin for CombatPlugin {
     }
 }
 
-fn setup_player_attacks(mut commands: Commands) {
+fn setup_player_attacks(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    mut game_datas: ResMut<Assets<GameInfos>>,
+    mut pkv: ResMut<PkvStore>,
+) {
+    let attack_cooldown_level = get_sotred_value(&mut pkv, "attack_cooldown");
+
+    let mut attack_cooldown = 0.0;
+    if let Some(game_data) = game_datas.get(game_data.data.id()) {
+        attack_cooldown = game_data.attack_cooldown[attack_cooldown_level as usize];
+    }
     commands.spawn((
+        SceneObject,
         PlayerCombatSettings {
-            cooldown: Timer::new(Duration::from_secs_f32(0.5), TimerMode::Once),
+            cooldown: Timer::new(Duration::from_secs_f32(attack_cooldown), TimerMode::Once),
         },
         PlayerHit {},
     ));

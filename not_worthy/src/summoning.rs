@@ -9,7 +9,7 @@ use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
 use crate::player_states::{PlayerIdleState, PlayerStateMaschine, WalkAnim};
-use crate::state_handling::get_progress;
+use crate::state_handling::get_sotred_value;
 use avian2d::collision::Collider;
 use avian2d::prelude::{
     LayerMask, LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter,
@@ -52,7 +52,7 @@ impl Plugin for SummoningPlugin {
 #[derive(Component)]
 pub struct AriseSettings {
     cooldown: Timer,
-    num: usize,
+    num: i32,
     knockback: f32,
     damage: f32,
     speed: f32,
@@ -64,22 +64,34 @@ fn setup_arise_system(
     mut game_datas: ResMut<Assets<GameInfos>>,
     mut pkv: ResMut<PkvStore>,
 ) {
-    let knockback_level = get_progress(&mut pkv, "knockback");
+    let knockback_level = get_sotred_value(&mut pkv, "knockback");
+    let damage_level = get_sotred_value(&mut pkv, "damage");
+    let speed_level = get_sotred_value(&mut pkv, "speed");
+    let arise_cooldown_level = get_sotred_value(&mut pkv, "arise_cooldown");
+    let arise_count_level = get_sotred_value(&mut pkv, "arise_count");
     let mut knockback = 0.0;
+    let mut damage = 0.0;
+    let mut speed = 0.0;
+    let mut arise_cooldown = 0.0;
+    let mut arise_count = 0;
     if let Some(game_data) = game_datas.get(game_data.data.id()) {
         knockback = game_data.knockback[knockback_level as usize];
+        damage = game_data.damage[damage_level as usize];
+        speed = game_data.speed[speed_level as usize];
+        arise_cooldown = game_data.arise_cooldown[arise_cooldown_level as usize];
+        arise_count = game_data.arise_count[arise_count_level as usize];
     }
 
-    let mut cooldown = Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once);
+    let mut cooldown = Timer::new(Duration::from_secs_f32(arise_cooldown), TimerMode::Once);
     cooldown.set_elapsed(Duration::from_secs_f32(5.0));
     commands.spawn((
         SceneObject,
         AriseSettings {
-            num: 2,
+            num: arise_count,
             cooldown,
             knockback,
-            damage: 1.0,
-            speed: 2.5,
+            damage,
+            speed,
         },
     ));
 }
@@ -156,7 +168,7 @@ fn arise_system(
                 dist: transform.translation.x.abs(),
             };
             max_heap.push(entdist);
-            if (max_heap.len() > arise_settings.num) {
+            if (max_heap.len() > arise_settings.num as usize) {
                 max_heap.pop();
             }
         }

@@ -109,6 +109,12 @@ pub struct MusicAssets {
     pub in_game: Handle<AudioSource>,
 }
 
+#[derive(AssetCollection, Resource)]
+pub struct CutSceneSounds {
+    #[asset(path = "music/draw_sword.wav")]
+    pub draw_sword: Handle<AudioSource>,
+}
+
 #[derive(serde::Deserialize)]
 pub struct ShopDisplay {
     pub cost: i32,
@@ -123,6 +129,11 @@ pub struct ShopItem {
 pub struct GameInfos {
     pub shop_items: Vec<ShopItem>,
     pub knockback: Vec<f32>,
+    pub damage: Vec<f32>,
+    pub speed: Vec<f32>,
+    pub arise_cooldown: Vec<f32>,
+    pub arise_count: Vec<i32>,
+    pub attack_cooldown: Vec<f32>,
 }
 // #[derive(Resource)]
 // struct LevelHandle(Handle<crate::Level>);

@@ -1,6 +1,7 @@
 use crate::animation::AnimationManager;
 use crate::asset_load::{EnemySounds, EnemySprite};
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
+use crate::game_manager::Scorer;
 use crate::game_state::GameState;
 use crate::level_loading::SceneObject;
 use crate::movement::GameLayer;
@@ -385,12 +386,18 @@ pub struct BacicEnemDeadState {
 }
 fn basic_enem_dead_state_system(
     mut commands: Commands,
-    mut dead_state_query: Query<(&BacicEnemDeadState, Entity, &Transform)>,
+    mut dead_state_query: Query<(&BacicEnemDeadState, Entity, &Enemy, &Transform)>,
     hero_asset: Res<EnemySprite>,
     mut sprite_params: Sprite3dParams,
+    mut scorer_query: Query<&mut Scorer>,
 ) {
-    for (mut state, entity, transform) in dead_state_query.iter() {
+    let Ok(mut scorer) = scorer_query.get_single_mut() else {
+        return;
+    };
+
+    for (mut state, entity, enemy, transform) in dead_state_query.iter() {
         commands.entity(entity).despawn_recursive();
+        scorer.incoming.push_back(enemy.points);
         spawn_deceased(
             &mut commands,
             transform.translation.x,

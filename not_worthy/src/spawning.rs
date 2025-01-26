@@ -115,7 +115,9 @@ fn continuous_spawning_system(
     }
 }
 #[derive(Component)]
-pub struct Enemy;
+pub struct Enemy {
+    pub points: i32,
+}
 
 #[derive(Component)]
 pub struct TimeTravel {
@@ -188,7 +190,7 @@ pub fn spawn_enemy_system(
 
         enemy
             .insert((
-                Enemy,
+                Enemy { points: 2 },
                 SceneObject,
                 hit_composer,
                 Visibility::default(),

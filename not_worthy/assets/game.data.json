@@ -91,11 +91,11 @@
       "name": "Arise Cooldown",
       "shop_displays": [
         {
-          "cost": 10,
+          "cost": 50,
           "text": "quicker"
         },
         {
-          "cost": 50,
+          "cost": 100,
           "text": "even quicker"
         },
         {
@@ -162,7 +162,7 @@
         },
         {
           "cost": -1,
-          "text": "..."
+          "text": "just learn to click faster"
         }
       ]
     }
@@ -190,5 +190,27 @@
     5.0,
     6.0,
     10.0
+  ],
+  "arise_cooldown": [
+    5.0,
+    3.0,
+    1.0,
+    0.0
+  ],
+  "arise_count": [
+    2,
+    4,
+    6,
+    10,
+    200,
+    1000
+  ],
+  "attack_cooldown": [
+    1.0,
+    0.5,
+    0.25,
+    0.125,
+    0.06,
+    0.0
   ]
 }
