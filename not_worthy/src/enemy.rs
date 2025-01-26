@@ -3,10 +3,11 @@ use crate::asset_load::{EnemySounds, EnemySprite};
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
 use crate::game_manager::Scorer;
 use crate::game_state::GameState;
+use crate::hit_detection::{test_point, HitDetection};
 use crate::level_loading::SceneObject;
 use crate::movement::GameLayer;
-use crate::spawning::{Enemy, TimeTravel};
-use crate::summoning::spawn_deceased;
+use crate::spawning::{Enemy, EnemyType, TimeTravel};
+use crate::summoning::{spawn_deceased, DeceasedSpawnPoint};
 use avian2d::prelude::{LayerMask, LinearVelocity, SpatialQuery, SpatialQueryFilter};
 use bevy::app::{App, FixedUpdate, Plugin, PreUpdate, Update};
 use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
@@ -112,20 +113,18 @@ fn walk_to_target_time_travel(
 fn check_attack_system(
     mut commands: Commands,
     attack_check_query: Query<(&Hitter, &Direction, &Transform, Entity), With<AttackCheck>>,
-    spatial_query: SpatialQuery,
-    opfer_query: Query<(&Opfer)>,
+    hit_detection_query: Query<&HitDetection>, // spatial_query: SpatialQuery,
+                                               // opfer_query: Query<(&Opfer)>,
 ) {
-    for (hitter, direction, transform, entity) in attack_check_query.iter() {
-        let hit: bool = hit_test(
-            &spatial_query,
-            hitter,
-            direction,
-            transform.translation.xy(),
-            &opfer_query,
-            &hitter.spatial_query_filter,
-        );
-        if (hit) {
-            commands.entity(entity).insert(AttackReady {});
+    if let Ok(hit_detection) = hit_detection_query.get_single() {
+        for (hitter, direction, transform, entity) in attack_check_query.iter() {
+            let hit: bool = test_point(
+                &hit_detection.space,
+                transform.translation.x + hitter.offset.x * direction.direction,
+            );
+            if (hit) {
+                commands.entity(entity).insert(AttackReady {});
+            }
         }
     }
 }
@@ -398,13 +397,14 @@ fn basic_enem_dead_state_system(
     for (mut state, entity, enemy, transform) in dead_state_query.iter() {
         commands.entity(entity).despawn_recursive();
         scorer.incoming.push_back(enemy.points);
-        spawn_deceased(
-            &mut commands,
-            transform.translation.x,
-            &hero_asset.image,
-            &hero_asset.layout,
-            &mut sprite_params,
-        );
+        let enem_type = enemy.enemy_type.clone();
+        commands.spawn((
+            SceneObject {},
+            DeceasedSpawnPoint {
+                enemy_type: enem_type,
+            },
+            Transform::from_translation(transform.translation),
+        ));
     }
 }
 

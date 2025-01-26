@@ -126,7 +126,7 @@ fn get_shop_item(
     too_expensive: bool,
 ) {
     let button_node: Node = Node {
-        width: Val::Px(300.0),
+        width: Val::Vh(27.0),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
@@ -157,7 +157,7 @@ fn get_shop_item(
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Start,
                 justify_content: JustifyContent::Start,
-                margin: UiRect::all(Val::Px(10.0)),
+                margin: UiRect::all(Val::Vh(1.0)),
                 ..default()
             },
         ))
@@ -218,9 +218,9 @@ fn setup_shop(
     outdated_query: Query<Entity, With<Outdated>>,
 ) {
     let button_node = Node {
-        width: Val::Px(300.0),
-        height: Val::Px(65.0),
-        margin: UiRect::all(Val::Px(20.0)),
+        width: Val::Vh(27.0),
+        height: Val::Vh(6.0),
+        margin: UiRect::all(Val::Vh(20.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
@@ -270,7 +270,7 @@ fn setup_shop(
                     Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        margin: UiRect::all(Val::Px(50.0)),
+                        margin: UiRect::all(Val::Vh(4.0)),
                         ..default()
                     },
                 ))
@@ -285,7 +285,7 @@ fn setup_shop(
                         },
                         TextColor(TEXT_COLOR),
                         Node {
-                            margin: UiRect::all(Val::Px(50.0)),
+                            margin: UiRect::all(Val::Vh(4.0)),
                             ..default()
                         },
                     ));
@@ -393,7 +393,7 @@ fn setup_shop(
                         button_text_font.clone(),
                         TextColor(TEXT_COLOR),
                         Node {
-                            margin: UiRect::all(Val::Px(50.0)),
+                            margin: UiRect::all(Val::Vh(4.0)),
                             ..default()
                         },
                     ));
@@ -447,9 +447,9 @@ const DISABLED_TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 
 fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     let button_node = Node {
-        width: Val::Px(300.0),
-        height: Val::Px(65.0),
-        margin: UiRect::all(Val::Px(20.0)),
+        width: Val::Vh(27.0),
+        height: Val::Vh(6.0),
+        margin: UiRect::all(Val::Vh(1.8)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
@@ -479,7 +479,7 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        margin: UiRect::all(Val::Px(50.0)),
+                        margin: UiRect::all(Val::Vh(4.0)),
                         ..default()
                     },
                 ))
@@ -494,7 +494,7 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                         TextColor(TEXT_COLOR),
                         Node {
-                            margin: UiRect::all(Val::Px(50.0)),
+                            margin: UiRect::all(Val::Vh(4.0)),
                             ..default()
                         },
                     ));

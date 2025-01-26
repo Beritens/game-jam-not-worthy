@@ -6,7 +6,7 @@ use crate::asset_load::{
 use crate::combat::CombatPlugin;
 use crate::game_state::GameState;
 use crate::spawning::{EnemyType, Spawner};
-use crate::summoning::{spawn_deceased, spawn_player};
+use crate::summoning::{spawn_deceased, spawn_player, DeceasedSpawnPoint};
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::{App, Main, Plugin, Startup, Update};
@@ -128,24 +128,21 @@ fn setup(
         SceneObject,
     ));
 
-    spawn_deceased(
-        &mut commands,
-        1.5,
-        &hero_asset.image,
-        &hero_asset.layout,
-        &mut sprite_params,
-    );
-
-    // spawn_enemy(&mut commands, -10.0, &hero_asset.idle, &mut sprite_params);
-    // spawn_enemy(&mut commands, -6.0, &hero_asset.idle, &mut sprite_params);
-    // spawn_enemy(&mut commands, -3.0, &hero_asset.idle, &mut sprite_params);
-    // spawn_enemy(&mut commands, 4.0, &hero_asset.idle, &mut sprite_params);
-    // spawn_enemy(&mut commands, 7.0, &hero_asset.idle, &mut sprite_params);
-    // spawn_enemy(&mut commands, 12.0, &hero_asset.idle, &mut sprite_params);
+    commands.spawn((
+        SceneObject {},
+        DeceasedSpawnPoint {
+            enemy_type: EnemyType::BASIC,
+        },
+        Transform::from_xyz(1.5, 0.0, 0.0),
+    ));
     commands.spawn((
         Transform::from_xyz(30.0, 2.00, 0.0),
         Spawner {
-            preheat: 10.0,
+            inactive: Timer::default(),
+            preheat: 0.0,
+            min: 0.1,
+            max: 10.0,
+            factor: 0.8,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
             enemy_type: EnemyType::BASIC,
         },
@@ -155,9 +152,40 @@ fn setup(
     commands.spawn((
         Transform::from_xyz(-30.0, 2.00, 0.0),
         Spawner {
-            preheat: 6.0,
+            inactive: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
+            preheat: 0.0,
+            min: 0.1,
+            max: 10.0,
+            factor: 0.8,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
             enemy_type: EnemyType::BASIC,
+        },
+        SceneObject,
+    ));
+    commands.spawn((
+        Transform::from_xyz(-30.0, 2.00, 0.0),
+        Spawner {
+            inactive: Timer::default(),
+            preheat: 2.0,
+            min: 0.1,
+            max: 10.0,
+            factor: 1.1,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::FAST,
+        },
+        SceneObject,
+    ));
+
+    commands.spawn((
+        Transform::from_xyz(30.0, 2.00, 0.0),
+        Spawner {
+            inactive: Timer::default(),
+            preheat: 3.0,
+            min: 0.1,
+            max: 10.0,
+            factor: 1.1,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::FAST,
         },
         SceneObject,
     ));
@@ -175,17 +203,7 @@ fn setup_necessary(mut commands: Commands) {
     //     Transform::from_xyz(0.0, 2.00, 10.0),
     // ));
 }
-fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let music: Handle<AudioSource> = asset_server.load("music/GrumpySworrd_LoadScreen.wav");
-    commands.spawn((
-        AudioPlayer::new(music),
-        PlaybackSettings {
-            mode: PlaybackMode::Loop,
-            ..Default::default()
-        },
-        SceneObject,
-    ));
-}
+fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {}
 
 fn setup_menu(
     mut commands: Commands,

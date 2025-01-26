@@ -39,6 +39,11 @@ pub struct EnemySprite {
 }
 
 #[derive(AssetCollection, Resource)]
+pub struct ShadowSprite {
+    #[asset(path = "shadow.png")]
+    pub image: Handle<Image>,
+}
+#[derive(AssetCollection, Resource)]
 pub struct SkeletonSprite {
     #[asset(texture_atlas_layout(
         tile_size_x = 128,

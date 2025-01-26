@@ -4,10 +4,12 @@ mod combat;
 mod enemy;
 mod game_manager;
 mod game_state;
+mod hit_detection;
 mod input_manager;
 mod level_loading;
 mod movement;
 mod player_states;
+mod shadows;
 mod spawning;
 mod state_handling;
 mod summoning;
@@ -16,18 +18,20 @@ mod ui_stuff;
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
 use crate::asset_load::{
     CutSceneArt, CutSceneSounds, EnemySounds, EnemySprite, EnvironmentArt, GameData, GameInfos,
-    MusicAssets, PlayerSounds, SkeletonSprite, SwordAnimation,
+    MusicAssets, PlayerSounds, ShadowSprite, SkeletonSprite, SwordAnimation,
 };
 use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
 use crate::game_manager::GameManagerPlugin;
 use crate::game_state::GameState;
+use crate::hit_detection::{HitDetection, HitDetectionPlugin};
 use crate::input_manager::InputManagingPlugin;
 use crate::level_loading::LevelLoadingPlugin;
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, MovementPlugin,
 };
 use crate::player_states::PlayerPlugin;
+use crate::shadows::ShadowPlugin;
 use crate::spawning::{Spawner, SpawningPlugin};
 use crate::summoning::{spawn_player, SummoningPlugin};
 use crate::ui_stuff::UIStuffPlugin;
@@ -64,6 +68,8 @@ fn main() {
     app.add_plugins(JsonAssetPlugin::<GameInfos>::new(&["data.json"]));
     app.add_plugins(MovementPlugin);
     app.add_plugins(GameManagerPlugin);
+    app.add_plugins(HitDetectionPlugin);
+    app.add_plugins(ShadowPlugin);
     app.add_plugins(CombatPlugin);
     app.add_plugins(PlayerPlugin);
     app.add_plugins(InputManagingPlugin);
@@ -91,6 +97,7 @@ fn main() {
             .load_collection::<MusicAssets>()
             // .load_collection::<DebugSprite>()
             .load_collection::<EnemySprite>()
+            .load_collection::<ShadowSprite>()
             .load_collection::<SkeletonSprite>(),
     );
 

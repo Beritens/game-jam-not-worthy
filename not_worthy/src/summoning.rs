@@ -1,5 +1,7 @@
 use crate::animation::{Animation, AnimationManager};
-use crate::asset_load::{EnemySounds, EnemySprite, GameData, GameInfos, SkeletonSprite};
+use crate::asset_load::{
+    EnemySounds, EnemySprite, GameData, GameInfos, ShadowSprite, SkeletonSprite,
+};
 use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
@@ -9,8 +11,11 @@ use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
 use crate::player_states::{PlayerIdleState, PlayerStateMaschine, WalkAnim};
+use crate::shadows::Shadow;
+use crate::spawning::EnemyType;
 use crate::state_handling::get_sotred_value;
 use avian2d::collision::Collider;
+use avian2d::parry::transformation::utils::transform;
 use avian2d::prelude::{
     LayerMask, LockedAxes, MassPropertiesBundle, RigidBody, SpatialQueryFilter,
 };
@@ -39,7 +44,10 @@ pub struct SummoningPlugin;
 
 impl Plugin for SummoningPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, arise_system.run_if(in_state(GameState::InGame)));
+        app.add_systems(
+            Update,
+            (arise_system, spawn_deceased).run_if(in_state(GameState::InGame)),
+        );
         app.add_systems(
             OnEnter(GameState::InGame),
             setup_arise_system.run_if(in_state(GameState::InGame)),
@@ -83,7 +91,7 @@ fn setup_arise_system(
     }
 
     let mut cooldown = Timer::new(Duration::from_secs_f32(arise_cooldown), TimerMode::Once);
-    cooldown.set_elapsed(Duration::from_secs_f32(5.0));
+    cooldown.set_elapsed(Duration::from_secs_f32(arise_cooldown));
     commands.spawn((
         SceneObject,
         AriseSettings {
@@ -133,6 +141,7 @@ fn arise_system(
     input_query: Query<(&ActionState<Action>), With<BasicControl>>,
     deceased_query: Query<(Entity, &Transform), With<Deceased>>,
     skelet_asset: Res<SkeletonSprite>,
+    shadow_asset: Res<ShadowSprite>,
     mut sprite_params: Sprite3dParams,
     mut arise_settings_query: Query<(&mut AriseSettings)>,
 ) {
@@ -182,6 +191,7 @@ fn arise_system(
                         rand::thread_rng().gen_range(-0.3..0.3),
                     ),
                     &skelet_asset,
+                    &shadow_asset,
                     &player_settings,
                     &mut sprite_params,
                 );
@@ -191,10 +201,14 @@ fn arise_system(
     }
 }
 
+#[derive(Component)]
+pub struct Player;
+
 pub fn spawn_player(
-    commands: &mut Commands,
+    mut commands: &mut Commands,
     pos: Vec3,
     asset: &SkeletonSprite,
+    shadow: &ShadowSprite,
     player_settings: &PlayerSettings,
     mut sprite3d_params: &mut Sprite3dParams,
 ) {
@@ -203,7 +217,7 @@ pub fn spawn_player(
         pixels_per_metre: 128.0,
         alpha_mode: AlphaMode::Blend,
         unlit: false,
-        pivot: Option::from(Vec2::new(0.4, 0.5)),
+        pivot: Option::from(Vec2::new(0.35, 0.5)),
         ..default()
     };
 
@@ -211,99 +225,143 @@ pub fn spawn_player(
         layout: asset.layout.clone(),
         index: 0,
     };
-    commands
-        .spawn((
-            PlayerStateMaschine { attack_time: 0.15 },
-            PlayerIdleState { new: true },
-            WalkAnim { active: false },
-            AnimationManager {
-                running: 0,
-                new: true,
-                done: false,
-                animations: vec![
-                    Animation {
-                        start: 0,
-                        end: 0,
-                        repeating: true,
-                        timer: Default::default(),
-                    },
-                    Animation {
-                        start: 1,
-                        end: 3,
-                        repeating: false,
-                        timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
-                    },
-                    Animation {
-                        start: 4,
-                        end: 10,
-                        repeating: true,
-                        timer: Timer::new(Duration::from_secs_f32(0.12), TimerMode::Repeating),
-                    },
-                ],
-            },
-            Transform::from_translation(pos),
-            RigidBody::Dynamic,
-            Collider::circle(0.5),
-            Controllable {
-                speed: player_settings.speed,
-            },
-            get_player_collision_layers(),
-            Direction { direction: -1.0 },
-            Opfer {
-                hit_layer: 1,
-                hits: VecDeque::new(),
-            },
-            Health::from_health(1.0),
-            Hitter {
-                knockback: player_settings.knockback,
-                damage: player_settings.damage,
-                hit_box: Vec2::new(1.0, 1.0),
-                offset: Vec2::new(0.5, 0.0),
-                hit_mask: 1,
-                spatial_query_filter: SpatialQueryFilter::from_mask(LayerMask::from(
-                    GameLayer::Enemy,
-                )),
-            },
-            LockedAxes::ROTATION_LOCKED,
-            MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
-        ))
-        .insert((Visibility::default(), SceneObject))
+    let mut player = commands.spawn((
+        PlayerStateMaschine { attack_time: 0.15 },
+        PlayerIdleState { new: true },
+        WalkAnim { active: false },
+        AnimationManager {
+            running: 0,
+            new: true,
+            done: false,
+            animations: vec![
+                Animation {
+                    start: 0,
+                    end: 0,
+                    repeating: true,
+                    timer: Default::default(),
+                },
+                Animation {
+                    start: 1,
+                    end: 3,
+                    repeating: false,
+                    timer: Timer::new(Duration::from_secs_f32(0.08), TimerMode::Repeating),
+                },
+                Animation {
+                    start: 4,
+                    end: 10,
+                    repeating: true,
+                    timer: Timer::new(Duration::from_secs_f32(0.12), TimerMode::Repeating),
+                },
+            ],
+        },
+        Transform::from_translation(pos),
+        RigidBody::Dynamic,
+        Collider::circle(0.5),
+        Controllable {
+            speed: player_settings.speed,
+        },
+        get_player_collision_layers(),
+        Direction { direction: -1.0 },
+        Opfer {
+            hit_layer: 1,
+            hits: VecDeque::new(),
+        },
+        Health::from_health(1.0),
+        Hitter {
+            knockback: player_settings.knockback,
+            damage: player_settings.damage,
+            hit_box: Vec2::new(1.0, 1.0),
+            offset: Vec2::new(0.5, 0.0),
+            hit_mask: 1,
+            spatial_query_filter: SpatialQueryFilter::from_mask(LayerMask::from(GameLayer::Enemy)),
+        },
+        LockedAxes::ROTATION_LOCKED,
+        MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
+    ));
+    player
+        .insert((Visibility::default(), SceneObject, Player))
         .with_children(|parent| {
             parent.spawn((
                 sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
                 Transform::from_rotation(Quat::from_rotation_y(PI)),
             ));
         });
+
+    let shadow_sprite = Sprite3dBuilder {
+        image: shadow.image.clone(),
+        pixels_per_metre: 128.0,
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    };
+    let player_id = player.id();
+
+    commands.spawn((
+        SceneObject,
+        Transform::from_xyz(pos.x, -0.5, pos.z - 0.1).with_scale(Vec3::new(0.5, 0.1, 0.5)),
+        Shadow { caster: player_id },
+        shadow_sprite.bundle(&mut sprite3d_params),
+    ));
+}
+
+#[derive(Component)]
+pub struct DeceasedSpawnPoint {
+    pub enemy_type: EnemyType,
 }
 #[derive(Component)]
 pub struct Deceased {}
 
 pub fn spawn_deceased(
-    commands: &mut Commands,
-    pos: f32,
-    image: &Handle<Image>,
-    texture_atlas_layout: &Handle<TextureAtlasLayout>,
-    sprite3d_params: &mut Sprite3dParams,
+    mut commands: Commands,
+    enemy_asset: Res<EnemySprite>,
+    mut sprite_params: Sprite3dParams,
+    spawn_point_query: Query<(&Transform, &DeceasedSpawnPoint, Entity)>,
 ) {
-    let texture_atlas = TextureAtlas {
-        layout: texture_atlas_layout.clone(),
-        index: 0,
-    };
-    let sprite = Sprite3dBuilder {
-        image: image.clone(),
-        pixels_per_metre: 128.0,
-        alpha_mode: AlphaMode::Blend,
-        unlit: false,
-        pivot: Option::from(Vec2::new(0.4, 0.5)),
-        ..default()
-    };
-    commands.spawn((
-        SceneObject {},
-        Transform::from_translation(Vec3::new(pos, -0.5, 0.0))
-            .with_rotation(Quat::from_rotation_z(PI / 2.0)),
-        Deceased {},
-        sprite.bundle_with_atlas(sprite3d_params, texture_atlas.clone()),
-    ));
+    for (transform, deceased, entity) in spawn_point_query.iter() {
+        let texture_atlas = TextureAtlas {
+            layout: enemy_asset.layout.clone(),
+            index: 0,
+        };
+        let sprite = Sprite3dBuilder {
+            image: enemy_asset.image.clone(),
+            pixels_per_metre: 128.0,
+            alpha_mode: AlphaMode::Blend,
+            unlit: false,
+            pivot: Option::from(Vec2::new(0.4, 0.5)),
+            ..default()
+        };
+        let random = rand::thread_rng().gen_range(-0.1..0.1);
+        match deceased.enemy_type {
+            EnemyType::BASIC => {
+                commands.spawn((
+                    SceneObject {},
+                    Transform::from_translation(Vec3::new(
+                        transform.translation.x,
+                        -0.5,
+                        0.5 + random,
+                    ))
+                    .with_rotation(Quat::from_rotation_z(PI / 2.0)),
+                    Deceased {},
+                    sprite.bundle_with_atlas(&mut sprite_params, texture_atlas.clone()),
+                ));
+            }
+            EnemyType::FAST => {
+                commands.spawn((
+                    SceneObject {},
+                    Transform::from_translation(Vec3::new(
+                        transform.translation.x,
+                        -0.5,
+                        0.5 + random,
+                    ))
+                    .with_scale(Vec3::splat(0.6))
+                    .with_rotation(Quat::from_rotation_z(PI / 2.0)),
+                    Deceased {},
+                    sprite.bundle_with_atlas(&mut sprite_params, texture_atlas.clone()),
+                ));
+            }
+        }
+        commands.entity(entity).despawn();
+    }
 }
 // pub fn die_system(mut commands: Commands, query: Query<Entity, (With<Dead>, With<Controllable>)>) {
 //     for entity in query.iter() {

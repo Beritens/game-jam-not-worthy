@@ -91,7 +91,7 @@
       "name": "Arise Cooldown",
       "shop_displays": [
         {
-          "cost": 50,
+          "cost": 10,
           "text": "quicker"
         },
         {
@@ -99,7 +99,11 @@
           "text": "even quicker"
         },
         {
-          "cost": 400,
+          "cost": 500,
+          "text": "solo leveling"
+        },
+        {
+          "cost": 1000,
           "text": "SPAMMING"
         },
         {
@@ -192,15 +196,16 @@
     10.0
   ],
   "arise_cooldown": [
+    10.0,
     5.0,
-    3.0,
+    2.0,
     1.0,
     0.0
   ],
   "arise_count": [
+    1,
     2,
-    4,
-    6,
+    5,
     10,
     200,
     1000
