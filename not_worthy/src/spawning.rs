@@ -52,7 +52,7 @@ pub enum EnemyType {
 }
 
 #[derive(Component)]
-pub struct Spawner {
+pub struct EnemySpawner {
     pub inactive: Timer,
     pub preheat: f32,
     pub min: f32,
@@ -76,7 +76,7 @@ pub struct TimeTraveler {
 fn continuous_spawning_system(
     time: Res<Time>,
     mut commands: Commands,
-    mut spawner_query: Query<(&mut Spawner, &Transform)>,
+    mut spawner_query: Query<(&mut EnemySpawner, &Transform)>,
 ) {
     for (mut spawner, transform) in spawner_query.iter_mut() {
         spawner.inactive.tick(time.delta());
@@ -171,7 +171,7 @@ pub fn spawn_enemy_system(
             pixels_per_metre: 128.0,
             alpha_mode: AlphaMode::Blend,
             unlit: false,
-            pivot: Option::from(Vec2::new(0.4, 0.5)),
+            pivot: Option::from(Vec2::new(0.35, 0.5)),
             ..default()
         };
 
@@ -305,7 +305,7 @@ pub fn spawn_fast_enemy_system(
             pixels_per_metre: 128.0,
             alpha_mode: AlphaMode::Blend,
             unlit: false,
-            pivot: Option::from(Vec2::new(0.4, 0.5)),
+            pivot: Option::from(Vec2::new(0.35, 0.5)),
             ..default()
         };
 

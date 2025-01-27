@@ -32,7 +32,7 @@ use crate::movement::{
 };
 use crate::player_states::PlayerPlugin;
 use crate::shadows::ShadowPlugin;
-use crate::spawning::{Spawner, SpawningPlugin};
+use crate::spawning::{EnemySpawner, SpawningPlugin};
 use crate::summoning::{spawn_player, SummoningPlugin};
 use crate::ui_stuff::UIStuffPlugin;
 use crate::GameState::Loading;
@@ -51,6 +51,7 @@ use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt, LoadingStateConfig,
 };
 use bevy_common_assets::json::JsonAssetPlugin;
+use bevy_hanabi::HanabiPlugin;
 use bevy_pkv::PkvStore;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams, Sprite3dPlugin};
 use bevy_wasm_window_resize::WindowResizePlugin;
@@ -82,6 +83,7 @@ fn main() {
     app.add_plugins(PhysicsPlugins::default());
     app.insert_resource(Gravity(Vec2::new(0.0, -9.81)));
     app.add_plugins(Sprite3dPlugin);
+    app.add_plugins(HanabiPlugin);
     app.init_state::<GameState>();
 
     app.add_loading_state(

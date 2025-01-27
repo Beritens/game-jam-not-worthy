@@ -106,11 +106,11 @@ pub struct PlayerSounds {
 
 #[derive(AssetCollection, Resource)]
 pub struct MusicAssets {
-    #[asset(path = "music/GrumpySworrd_instance.wav")]
+    #[asset(path = "music/GrumpySworrd_instance.ogg")]
     pub shop: Handle<AudioSource>,
-    #[asset(path = "music/GrumpySworrd_LoadScreen.wav")]
+    #[asset(path = "music/GrumpySworrd_LoadScreen.ogg")]
     pub menu: Handle<AudioSource>,
-    #[asset(path = "music/GrumpySworrd_intense.wav")]
+    #[asset(path = "music/GrumpySworrd_intense.ogg")]
     pub in_game: Handle<AudioSource>,
 }
 

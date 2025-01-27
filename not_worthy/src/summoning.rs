@@ -6,7 +6,7 @@ use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
-use crate::level_loading::SceneObject;
+use crate::level_loading::{AriseEffect, SceneObject, SwordEffect};
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
@@ -31,6 +31,7 @@ use bevy::prelude::{
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
 use bevy::utils::tracing::Instrument;
+use bevy_hanabi::EffectInitializers;
 use bevy_pkv::PkvStore;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
@@ -46,7 +47,8 @@ impl Plugin for SummoningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (arise_system, spawn_deceased).run_if(in_state(GameState::InGame)),
+            (arise_system, spawn_deceased, update_effect_system)
+                .run_if(in_state(GameState::InGame)),
         );
         app.add_systems(
             OnEnter(GameState::InGame),
@@ -135,6 +137,17 @@ struct PlayerSettings {
     damage: f32,
 }
 
+fn update_effect_system(
+    arise_settings_query: Query<(&AriseSettings)>,
+    mut effect_query: Query<&mut EffectInitializers, With<SwordEffect>>,
+) {
+    let Ok(mut arise_settings) = arise_settings_query.get_single() else {
+        return;
+    };
+    for (mut spawner) in effect_query.iter_mut() {
+        spawner.set_active(arise_settings.cooldown.finished());
+    }
+}
 fn arise_system(
     time: Res<Time>,
     mut commands: Commands,
@@ -144,6 +157,7 @@ fn arise_system(
     shadow_asset: Res<ShadowSprite>,
     mut sprite_params: Sprite3dParams,
     mut arise_settings_query: Query<(&mut AriseSettings)>,
+    mut effect_query: Query<&mut EffectInitializers, With<AriseEffect>>,
 ) {
     let mut summon = false;
     for (action) in &input_query {
@@ -165,6 +179,10 @@ fn arise_system(
         summon = false;
     }
     if (summon) {
+        for (mut spawner) in effect_query.iter_mut() {
+            spawner.reset();
+        }
+
         let player_settings = PlayerSettings {
             knockback: arise_settings.knockback,
             speed: arise_settings.speed,
