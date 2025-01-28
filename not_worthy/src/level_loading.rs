@@ -7,6 +7,7 @@ use crate::combat::CombatPlugin;
 use crate::game_state::GameState;
 use crate::spawning::{EnemySpawner, EnemyType};
 use crate::summoning::{spawn_deceased, spawn_player, DeceasedSpawnPoint};
+use crate::ui_stuff::CompText;
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::{App, Main, Plugin, Startup, Update};
@@ -18,16 +19,18 @@ use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::math::{Vec2, Vec3};
 use bevy::pbr::{AmbientLight, PointLight};
 use bevy::prelude::{
-    default, in_state, Alpha, AlphaMode, AssetServer, Assets, AudioBundle, Camera, Camera3d,
-    Commands, Component, DespawnRecursiveExt, Entity, EventReader, GlobalTransform, Handle,
-    IntoSystemConfigs, LinearRgba, Msaa, Name, NextState, OnEnter, OnExit, Query, Res, ResMut,
-    SystemSet, TextureAtlas, Time, Timer, TimerMode, Transform, Vec4, Window, With, Without,
+    default, in_state, resource_changed, Alpha, AlphaMode, AssetServer, Assets, AudioBundle,
+    Camera, Camera3d, Commands, Component, DespawnRecursiveExt, Entity, EventReader,
+    GlobalTransform, Handle, IntoSystemConfigs, LinearRgba, Msaa, Name, NextState, OnEnter, OnExit,
+    Query, Res, ResMut, SystemSet, Text, TextureAtlas, Time, Timer, TimerMode, Transform, Vec4,
+    Window, With, Without,
 };
 use bevy::window::PrimaryWindow;
 use bevy_firework::bevy_utilitarian::prelude::{RandF32, RandVec3};
 use bevy_firework::core::{BlendMode, ParticleSpawner};
 use bevy_firework::curve::{FireworkCurve, FireworkGradient};
 use bevy_firework::emission_shape::EmissionShape;
+use bevy_pipelines_ready::{PipelinesReady, PipelinesReadyPlugin};
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use std::f32::consts::PI;
 use std::time::Duration;
@@ -76,8 +79,22 @@ impl Plugin for LevelLoadingPlugin {
             ),
         );
 
+        app.add_systems(
+            OnEnter(GameState::CompilingShaders),
+            (
+                setup_mock_world.run_if(in_state(GameState::CompilingShaders)),
+                summon_world.run_if(in_state(GameState::CompilingShaders)),
+            ),
+        );
+        app.add_plugins(PipelinesReadyPlugin);
+        app.add_systems(
+            Update,
+            check_ready.run_if(in_state(GameState::CompilingShaders)),
+        );
+
         app.add_systems(Startup, setup_necessary);
         app.add_systems(OnExit(GameState::Menu), (delete_everything));
+        app.add_systems(OnExit(GameState::CompilingShaders), (delete_everything));
         app.add_systems(OnExit(GameState::Loading), (delete_everything));
         app.add_systems(OnExit(GameState::InGame), (delete_everything));
         app.add_systems(OnExit(GameState::CutScene), (delete_everything));
@@ -89,14 +106,31 @@ pub struct SceneObject;
 
 #[derive(Component)]
 struct MainCamera;
-fn setup(
-    mut commands: Commands,
-    hero_asset: Res<EnemySprite>,
-    mut sprite_params: Sprite3dParams,
-    asset_server: Res<AssetServer>,
-    enemy_sounds: Res<EnemySounds>,
-    music_assets: Res<MusicAssets>,
+
+fn setup_mock_world(mut commands: Commands) {
+    commands.spawn((
+        SceneObject,
+        Camera3d::default(),
+        MainCamera,
+        Transform::from_xyz(0.0, 2.00, 10.0),
+        Msaa::Off,
+    ));
+}
+fn check_ready(
+    ready: Res<PipelinesReady>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut info_query: Query<&mut Text, With<CompText>>,
 ) {
+    println!("{}", ready.get());
+    for (mut text) in info_query.iter_mut() {
+        text.0 = format!("Compiling Shaders: {}", ready.get().to_string());
+    }
+    if ready.get() >= 7 {
+        next_state.set(GameState::Menu);
+    }
+}
+
+fn setup(mut commands: Commands, enemy_sounds: Res<EnemySounds>, music_assets: Res<MusicAssets>) {
     commands.spawn((
         AudioPlayer::new(music_assets.in_game.clone()),
         PlaybackSettings {
@@ -129,7 +163,7 @@ fn setup(
     ));
 
     commands.spawn((
-        Transform::from_xyz(0.0, -1.0, -2.0).with_scale(Vec3::new(100.0, 1.0, 1.0)),
+        Transform::from_xyz(0.0, -1.0, -2.0).with_scale(Vec3::new(1000.0, 1.0, 1.0)),
         RigidBody::Static,
         Collider::rectangle(1.0, 1.0),
         SceneObject,
@@ -147,9 +181,9 @@ fn setup(
         EnemySpawner {
             inactive: Timer::default(),
             preheat: 0.0,
-            min: 0.1,
+            min: 0.2,
             max: 10.0,
-            factor: 0.8,
+            factor: 0.9,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
             enemy_type: EnemyType::BASIC,
         },
@@ -161,9 +195,9 @@ fn setup(
         EnemySpawner {
             inactive: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
             preheat: 0.0,
-            min: 0.1,
+            min: 0.2,
             max: 10.0,
-            factor: 0.8,
+            factor: 0.9,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
             enemy_type: EnemyType::BASIC,
         },
@@ -193,6 +227,33 @@ fn setup(
             factor: 1.1,
             timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
             enemy_type: EnemyType::FAST,
+        },
+        SceneObject,
+    ));
+    commands.spawn((
+        Transform::from_xyz(-30.0, 2.00, 0.0),
+        EnemySpawner {
+            inactive: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Once),
+            preheat: 2.0,
+            min: 1.0,
+            max: 10.0,
+            factor: 0.9,
+            timer: Timer::new(Duration::from_secs_f32(45.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BIG,
+        },
+        SceneObject,
+    ));
+
+    commands.spawn((
+        Transform::from_xyz(30.0, 2.00, 0.0),
+        EnemySpawner {
+            inactive: Timer::new(Duration::from_secs_f32(20.0), TimerMode::Once),
+            preheat: 0.0,
+            min: 1.0,
+            max: 10.0,
+            factor: 0.9,
+            timer: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BIG,
         },
         SceneObject,
     ));
@@ -239,7 +300,15 @@ fn setup_necessary(mut commands: Commands) {
         Transform::from_xyz(0., -0.25, -20.0),
     ));
 }
-fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {}
+fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        SceneObject,
+        Camera3d::default(),
+        MainCamera,
+        Transform::from_xyz(0.0, 2.00, 10.0),
+        Msaa::Off,
+    ));
+}
 
 fn setup_menu(
     mut commands: Commands,

@@ -144,12 +144,21 @@ pub struct HitComposer {
 fn attack_system(
     time: Res<Time>,
     mut commands: Commands,
-    mut query: Query<(&mut HitComposer, &mut AttackingHit, &Transform, Entity)>,
+    mut query: Query<(
+        &mut HitComposer,
+        &mut LinearVelocity,
+        &mut AttackingHit,
+        &Transform,
+        Entity,
+    )>,
     mut animation_query: Query<&mut AnimationManager>,
     sound_asset: Res<EnemySounds>,
 ) {
-    for (mut hit_composer, mut attacking_hit, transform, entity) in query.iter_mut() {
+    for (mut hit_composer, mut linear_velocity, mut attacking_hit, transform, entity) in
+        query.iter_mut()
+    {
         if (attacking_hit.new) {
+            linear_velocity.x = 0.0;
             hit_composer.timer.reset();
             hit_composer.after_timer.reset();
             hit_composer.state = 0;
@@ -239,16 +248,12 @@ fn basic_enem_active_state_system(
     for (mut state, entity) in active_state_query.iter_mut() {
         if (state.new) {
             if let Ok(mut anim) = animation_query.get_mut(entity) {
-                if let Ok(state_machine) = state_machine_query.get(entity) {
-                    basic_enem_active_on_enter(
-                        &mut commands,
-                        entity,
-                        &mut anim,
-                        state_machine.cooldown_time,
-                    );
-                }
+                basic_enem_active_on_enter(&mut commands, entity, &mut anim);
             }
             state.new = false;
+            if cooldown_timer_query.get_mut(entity).is_err() {
+                commands.entity(entity).insert(AttackCheck {});
+            }
         }
 
         if let Ok(mut cooldown_timer) = cooldown_timer_query.get_mut(entity) {
@@ -286,14 +291,10 @@ fn basic_enem_active_on_enter(
     mut commands: &mut Commands,
     entity: Entity,
     anim: &mut AnimationManager,
-    cooldown_time: f32,
 ) {
     anim.running = 3;
     anim.new = true;
     commands.entity(entity).insert(Walking {});
-    commands.entity(entity).insert(CooldownTimer {
-        timer: Timer::new(Duration::from_secs_f32(cooldown_time), TimerMode::Once),
-    });
 }
 fn basic_enem_active_on_exit(mut commands: &mut Commands, entity: Entity) {
     commands.entity(entity).remove::<BacicEnemActiveState>();
@@ -439,12 +440,22 @@ fn basic_enem_attack_state_system(
             commands
                 .entity(entity)
                 .insert(BacicEnemDeadState { new: true });
-            basic_enem_attack_on_exit(&mut commands, entity, &state_machine.basic_attack);
+            basic_enem_attack_on_exit(
+                &mut commands,
+                entity,
+                &state_machine.basic_attack,
+                state_machine.cooldown_time,
+            );
             continue;
         }
 
         if let Ok(finished_attack) = attack_finished_query.get(entity) {
-            basic_enem_attack_on_exit(&mut commands, entity, &state_machine.basic_attack);
+            basic_enem_attack_on_exit(
+                &mut commands,
+                entity,
+                &state_machine.basic_attack,
+                state_machine.cooldown_time,
+            );
             commands
                 .entity(entity)
                 .insert(BacicEnemActiveState { new: true });
@@ -469,9 +480,13 @@ fn basic_enem_attack_on_exit(
     mut commands: &mut Commands,
     entity: Entity,
     attack_type: &AttackType,
+    cooldown_time: f32,
 ) {
     commands.entity(entity).remove::<BacicEnemAttackState>();
     commands.entity(entity).remove::<FinishedAttack>();
+    commands.entity(entity).insert(CooldownTimer {
+        timer: Timer::new(Duration::from_secs_f32(cooldown_time), TimerMode::Once),
+    });
 
     match attack_type {
         AttackType::BasicAttack => {

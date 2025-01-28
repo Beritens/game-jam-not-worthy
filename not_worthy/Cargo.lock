@@ -978,6 +978,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_pipelines_ready"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11af1625c632617edfffa857736496ff04914dd32376cf62da4d1ce5895ded8d"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_pkv"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3039,10 +3048,12 @@ dependencies = [
  "bevy_asset_loader",
  "bevy_common_assets",
  "bevy_firework",
+ "bevy_pipelines_ready",
  "bevy_pkv",
  "bevy_sprite3d",
  "bevy_wasm_window_resize",
  "leafwing-input-manager",
+ "pid",
  "rand",
  "serde",
  "serde_json",
@@ -3547,6 +3558,15 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "pid"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c931ef9756cd5e3fa3d395bfe09df4dfa6f0612c6ca8f6b12927d17ca34e36"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]

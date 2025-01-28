@@ -1,7 +1,7 @@
 use crate::game_state::GameState;
 use crate::level_loading::SceneObject;
 use crate::summoning::Player;
-use bevy::app::{App, Plugin, Update};
+use bevy::app::{App, FixedPreUpdate, Plugin, Update};
 use bevy::prelude::{
     in_state, Commands, Component, IntoSystemConfigs, OnEnter, Query, SystemSet, Transform, With,
 };
@@ -19,7 +19,7 @@ impl Plugin for HitDetectionPlugin {
             setup_hit_detection.run_if(in_state(GameState::InGame)),
         );
         app.add_systems(
-            Update,
+            FixedPreUpdate,
             ((build_detection_vector_system).in_set(crate::combat::CombatSet)),
         );
         // app.add_systems(Update, (player_hit));

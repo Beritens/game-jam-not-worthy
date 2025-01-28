@@ -102,6 +102,17 @@ pub struct EnemySounds {
 pub struct PlayerSounds {
     #[asset(path = "sounds/swoosh.ogg")]
     pub swoosh: Handle<AudioSource>,
+
+    #[asset(path = "sounds/scream.ogg")]
+    pub scream: Handle<AudioSource>,
+}
+
+#[derive(AssetCollection, Resource)]
+pub struct UISounds {
+    #[asset(path = "sounds/Button_1.wav")]
+    pub button_1: Handle<AudioSource>,
+    #[asset(path = "sounds/Button_2.wav")]
+    pub button_2: Handle<AudioSource>,
 }
 
 #[derive(AssetCollection, Resource)]

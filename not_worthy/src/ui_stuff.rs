@@ -1,10 +1,12 @@
-use crate::asset_load::{GameData, GameInfos, ShopItem};
+use crate::asset_load::{GameData, GameInfos, ShopItem, UISounds};
+use crate::game_manager::Scorer;
 use crate::game_state::GameState;
 use crate::game_state::GameState::Shop;
 use crate::level_loading::SceneObject;
 use crate::state_handling::{get_sotred_value, store_value};
 use bevy::app::{App, Plugin, Update};
 use bevy::asset::{AssetServer, Assets};
+use bevy::audio::{AudioPlayer, PlaybackMode, PlaybackSettings};
 use bevy::color::palettes::css::CRIMSON;
 use bevy::color::Color;
 use bevy::ecs::system::lifetimeless::SCommands;
@@ -29,10 +31,17 @@ pub struct UIStuffPlugin;
 impl Plugin for UIStuffPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Shop), (setup_shop));
+        app.add_systems(OnEnter(GameState::InGame), (setup_game_ui));
         app.add_systems(OnEnter(GameState::Menu), (setup_main_menu));
+        app.add_systems(OnEnter(GameState::Loading), (setup_loading_ui));
+        app.add_systems(OnEnter(GameState::CompilingShaders), (setup_compiling_ui));
         app.add_systems(
             Update,
             (button_system, shop_action, setup_shop).run_if(in_state(GameState::Shop)),
+        );
+        app.add_systems(
+            Update,
+            (update_socre_display_system).run_if(in_state(GameState::InGame)),
         );
         app.add_systems(
             Update,
@@ -86,12 +95,20 @@ fn shop_action(
     shop_screen_query: Query<Entity, With<ShopScreen>>,
     mut commands: Commands,
     mut game_state: ResMut<NextState<GameState>>,
+    ui_sounds: Res<UISounds>,
 ) {
     for (interaction, shop_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             if let Ok(shop_screen) = shop_screen_query.get_single() {
                 commands.entity(shop_screen).insert(Outdated);
             }
+            commands.spawn((
+                AudioPlayer::new(ui_sounds.button_2.clone()),
+                PlaybackSettings {
+                    mode: PlaybackMode::Despawn,
+                    ..Default::default()
+                },
+            ));
             match shop_button_action {
                 ShopButtonAction::PLAY => {
                     game_state.set(GameState::InGame);
@@ -525,6 +542,8 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 fn menu_action(
+    mut commands: Commands,
+    ui_sounds: Res<UISounds>,
     interaction_query: Query<
         (&Interaction, &MenuButtonAction),
         (Changed<Interaction>, With<Button>),
@@ -533,6 +552,13 @@ fn menu_action(
 ) {
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
+            commands.spawn((
+                AudioPlayer::new(ui_sounds.button_1.clone()),
+                PlaybackSettings {
+                    mode: PlaybackMode::Despawn,
+                    ..Default::default()
+                },
+            ));
             match menu_button_action {
                 MenuButtonAction::Play => {
                     game_state.set(GameState::InGame);
@@ -540,4 +566,117 @@ fn menu_action(
             }
         }
     }
+}
+
+//in game
+
+#[derive(Component)]
+struct ScoreDispay;
+fn setup_game_ui(mut commands: Commands) {
+    let text_font = TextFont {
+        font_size: 33.0,
+        ..default()
+    };
+    commands
+        .spawn((
+            SceneObject,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Start,
+                justify_content: JustifyContent::End,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SceneObject,
+                ScoreDispay,
+                Text::new("0"),
+                text_font.clone(),
+                TextColor(TEXT_COLOR),
+                Node {
+                    margin: UiRect::all(Val::Vh(4.0)),
+                    ..default()
+                },
+            ));
+        });
+}
+
+fn update_socre_display_system(
+    scorer_query: Query<&Scorer>,
+    mut display_query: Query<&mut Text, With<ScoreDispay>>,
+) {
+    let Ok(scorer) = scorer_query.get_single() else {
+        return;
+    };
+
+    for mut text in display_query.iter_mut() {
+        text.0 = scorer.current.to_string();
+    }
+}
+
+//loading
+fn setup_loading_ui(mut commands: Commands) {
+    let text_font = TextFont {
+        font_size: 33.0,
+        ..default()
+    };
+    commands
+        .spawn((
+            SceneObject,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SceneObject,
+                Text::new("Loading Assets"),
+                text_font.clone(),
+                TextColor(TEXT_COLOR),
+                Node {
+                    margin: UiRect::all(Val::Vh(4.0)),
+                    ..default()
+                },
+            ));
+        });
+}
+
+//compiling
+#[derive(Component)]
+pub struct CompText;
+fn setup_compiling_ui(mut commands: Commands) {
+    let text_font = TextFont {
+        font_size: 33.0,
+        ..default()
+    };
+    commands
+        .spawn((
+            SceneObject,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                CompText,
+                SceneObject,
+                Text::new("Compiling Shaders"),
+                text_font.clone(),
+                TextColor(TEXT_COLOR),
+                Node {
+                    margin: UiRect::all(Val::Vh(4.0)),
+                    ..default()
+                },
+            ));
+        });
 }

@@ -78,6 +78,7 @@ pub struct Hitter {
     pub offset: Vec2,
     pub hit_mask: u32,
     pub spatial_query_filter: SpatialQueryFilter,
+    pub single: bool,
 }
 #[derive(Component)]
 pub struct Direction {
@@ -107,13 +108,26 @@ pub struct Attack {
 #[derive(Component)]
 pub struct Stunned {}
 
-#[derive(Component)]
-pub struct Dead {}
+pub enum Cause {
+    Out,
+    Attack,
+    Default,
+}
+#[derive(Component, Default)]
+pub struct Dead {
+    pub reason: Cause,
+}
+impl Default for Cause {
+    fn default() -> Self {
+        Cause::Default
+    }
+}
 
 #[derive(Component)]
 pub struct Opfer {
     pub hit_layer: u32,
     pub hits: VecDeque<Attack>,
+    pub knockback_multiplier: f32,
 }
 
 #[derive(Component)]
@@ -253,6 +267,9 @@ fn hit(
         if let Ok(opfer) = opfer_query.get(*entity) {
             if ((1 << opfer.hit_layer & hitter.hit_mask) != 0) {
                 count += 1;
+                if (hitter.single) {
+                    break;
+                }
             }
         }
     }
@@ -263,6 +280,9 @@ fn hit(
                     damage: hitter.damage / count as f32,
                     knockback: hitter.knockback / count as f32,
                 });
+                if (hitter.single) {
+                    break;
+                }
             }
         }
     }
@@ -282,8 +302,8 @@ fn enemy_take_damage(
     for (entity, mut linear_velocity, mut opfer, transform, mut health) in opfer_query.iter_mut() {
         while let Some(element) = opfer.hits.pop_front() {
             linear_velocity.0 += Vec2::new(
-                transform.translation.x.signum() * element.knockback,
-                element.knockback,
+                transform.translation.x.signum() * element.knockback * opfer.knockback_multiplier,
+                element.knockback * opfer.knockback_multiplier.abs(),
             );
             if stunned_query.get(entity).is_err() {
                 commands.entity(entity).insert(Stunned {});
@@ -291,7 +311,7 @@ fn enemy_take_damage(
             health.health -= element.damage;
             if (health.health <= 0.0) {
                 linear_velocity.0 = Vec2::ZERO;
-                commands.entity(entity).insert(Dead {});
+                commands.entity(entity).insert(Dead::default());
             }
         }
     }

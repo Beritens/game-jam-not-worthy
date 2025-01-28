@@ -9,7 +9,8 @@ use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
 use crate::level_loading::SceneObject;
 use crate::movement::{
-    get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
+    get_enemy_collision_layers, get_player_collision_layers, Barrier, Controllable, FancyWalk,
+    GameLayer,
 };
 use crate::player_states::{PlayerIdleState, PlayerStateMaschine, WalkAnim};
 use crate::shadows::Shadow;
@@ -43,6 +44,9 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 pub struct SummoningPlugin;
+
+const BARRIER_MIN: f32 = -8.0;
+const BARRIER_MAX: f32 = 8.0;
 
 impl Plugin for SummoningPlugin {
     fn build(&self, app: &mut App) {
@@ -201,18 +205,21 @@ fn arise_system(
         }
         for x in &max_heap {
             if let Ok((entity, transform)) = deceased_query.get(x.entity) {
-                spawn_player(
-                    &mut commands,
-                    Vec3::new(
-                        transform.translation.x,
-                        1.0,
-                        rand::thread_rng().gen_range(-0.3..0.3),
-                    ),
-                    &skelet_asset,
-                    &shadow_asset,
-                    &player_settings,
-                    &mut sprite_params,
-                );
+                if (transform.translation.x > BARRIER_MIN && transform.translation.x < BARRIER_MAX)
+                {
+                    spawn_player(
+                        &mut commands,
+                        Vec3::new(
+                            transform.translation.x,
+                            0.0,
+                            rand::thread_rng().gen_range(-0.3..0.3),
+                        ),
+                        &skelet_asset,
+                        &shadow_asset,
+                        &player_settings,
+                        &mut sprite_params,
+                    );
+                }
                 commands.entity(entity).despawn();
             }
         }
@@ -283,9 +290,11 @@ pub fn spawn_player(
         Opfer {
             hit_layer: 1,
             hits: VecDeque::new(),
+            knockback_multiplier: -1.0,
         },
         Health::from_health(1.0),
         Hitter {
+            single: false,
             knockback: player_settings.knockback,
             damage: player_settings.damage,
             hit_box: Vec2::new(1.0, 1.0),
@@ -297,7 +306,16 @@ pub fn spawn_player(
         MassPropertiesBundle::from_shape(&Circle::new(0.5), 1.0),
     ));
     player
-        .insert((Visibility::default(), SceneObject, Player))
+        .insert((
+            FancyWalk::default(),
+            Visibility::default(),
+            SceneObject,
+            Player,
+            Barrier {
+                min: BARRIER_MIN,
+                max: BARRIER_MAX,
+            },
+        ))
         .with_children(|parent| {
             parent.spawn((
                 sprite.bundle_with_atlas(&mut sprite3d_params, texture_atlas),
@@ -358,6 +376,20 @@ pub fn spawn_deceased(
                         -0.5,
                         0.5 + random,
                     ))
+                    .with_rotation(Quat::from_rotation_z(PI / 2.0)),
+                    Deceased {},
+                    sprite.bundle_with_atlas(&mut sprite_params, texture_atlas.clone()),
+                ));
+            }
+            EnemyType::BIG => {
+                commands.spawn((
+                    SceneObject {},
+                    Transform::from_translation(Vec3::new(
+                        transform.translation.x,
+                        -0.5,
+                        0.5 + random,
+                    ))
+                    .with_scale(Vec3::splat(1.4))
                     .with_rotation(Quat::from_rotation_z(PI / 2.0)),
                     Deceased {},
                     sprite.bundle_with_atlas(&mut sprite_params, texture_atlas.clone()),

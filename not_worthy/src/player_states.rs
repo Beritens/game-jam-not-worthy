@@ -1,11 +1,15 @@
 use crate::animation::AnimationManager;
-use crate::combat::Dead;
+use crate::asset_load::PlayerSounds;
+use crate::combat::{Cause, Dead};
+use crate::game_state::GameState;
 use bevy::app::{App, Plugin, PreUpdate};
+use bevy::audio::{AudioPlayer, PlaybackMode};
 use bevy::prelude::{
-    Commands, Component, DespawnRecursiveExt, Entity, IntoSystemConfigs, Query, Res, SystemSet,
-    Time, Timer,
+    in_state, Commands, Component, DespawnRecursiveExt, Entity, IntoSystemConfigs,
+    PlaybackSettings, Query, Res, SystemSet, Time, Timer,
 };
 use bevy::time::TimerMode;
+use bevy::utils::default;
 use std::time::Duration;
 
 pub struct PlayerPlugin;
@@ -24,7 +28,9 @@ impl Plugin for PlayerPlugin {
                     player_attack_state_system,
                 )
                     .in_set(PlayerSet),
-                player_dead_state_system.before(PlayerSet),
+                player_dead_state_system
+                    .before(PlayerSet)
+                    .run_if(in_state(GameState::InGame)),
             ),
         );
         // app.add_systems(
@@ -241,8 +247,24 @@ fn player_walking_on_exit(mut commands: &mut Commands, entity: Entity) {
 fn player_dead_state_system(
     mut commands: Commands,
     mut active_state_query: Query<(&mut PlayerDeadState, Entity)>,
+    mut dead_query: Query<(&Dead)>,
+    player_sounds: Res<PlayerSounds>,
 ) {
     for (mut state, entity) in active_state_query.iter_mut() {
         commands.entity(entity).despawn_recursive();
+        if let Ok(dead) = dead_query.get(entity) {
+            match dead.reason {
+                Cause::Out => {
+                    commands.spawn((
+                        AudioPlayer::new(player_sounds.scream.clone()),
+                        PlaybackSettings {
+                            mode: PlaybackMode::Despawn,
+                            ..default()
+                        },
+                    ));
+                }
+                _ => {}
+            }
+        }
     }
 }

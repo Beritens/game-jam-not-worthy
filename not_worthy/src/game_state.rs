@@ -4,6 +4,7 @@ use bevy::prelude::States;
 pub enum GameState {
     #[default]
     Loading,
+    CompilingShaders,
     Menu,
     InGame,
     CutScene,
