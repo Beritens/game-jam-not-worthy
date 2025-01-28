@@ -1,7 +1,8 @@
 use crate::asset_load::{EnemySounds, GameData, GameInfos, PlayerSounds};
+use crate::effects::{AriseEffect, AttackEffect};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
-use crate::level_loading::{AriseEffect, AttackEffect, SceneObject};
+use crate::level_loading::SceneObject;
 use crate::movement::{Controllable, GameLayer};
 use crate::player_states::AttackNow;
 use crate::state_handling::get_sotred_value;
@@ -16,7 +17,7 @@ use bevy::prelude::{
     Vec3Swizzles, With,
 };
 use bevy::time::TimerMode;
-use bevy_hanabi::EffectInitializers;
+use bevy_firework::core::ParticleSpawnerData;
 use bevy_pkv::PkvStore;
 use leafwing_input_manager::prelude::ActionState;
 use std::collections::VecDeque;
@@ -130,7 +131,7 @@ fn player_hit(
     mut player_setup_query: Query<(&mut PlayerCombatSettings), With<PlayerHit>>,
     mut query: Query<(&Transform, &mut Direction, Entity), (With<Hitter>, With<Controllable>)>,
     sound_asset: Res<PlayerSounds>,
-    mut effect_query: Query<&mut EffectInitializers, With<AttackEffect>>,
+    mut arise_effect_query: Query<(&mut ParticleSpawnerData), With<AttackEffect>>,
 ) {
     let mut dirr = 0.0;
     let mut attack = false;
@@ -172,8 +173,8 @@ fn player_hit(
                 direction.direction = dirr;
             }
             if (attack) {
-                for (mut spawner) in effect_query.iter_mut() {
-                    spawner.reset();
+                for (mut effect) in arise_effect_query.iter_mut() {
+                    effect.enabled = true;
                 }
                 commands.entity(entity).insert(Hitting {});
                 commands.entity(entity).insert(AttackNow {});

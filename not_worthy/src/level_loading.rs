@@ -13,23 +13,23 @@ use bevy::app::{App, Main, Plugin, Startup, Update};
 use bevy::asset::ErasedAssetLoader;
 use bevy::audio::{AudioPlayer, AudioSource, PlaybackMode, PlaybackSettings, Volume};
 use bevy::color::Color;
+use bevy::core_pipeline::bloom::Bloom;
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::math::{Vec2, Vec3};
 use bevy::pbr::{AmbientLight, PointLight};
 use bevy::prelude::{
-    default, in_state, AlphaMode, AssetServer, Assets, AudioBundle, Camera, Camera3d, Commands,
-    Component, DespawnRecursiveExt, Entity, EventReader, GlobalTransform, Handle,
-    IntoSystemConfigs, LinearRgba, Name, NextState, OnEnter, OnExit, Query, Res, ResMut, SystemSet,
-    TextureAtlas, Time, Timer, TimerMode, Transform, Vec4, Window, With, Without,
+    default, in_state, Alpha, AlphaMode, AssetServer, Assets, AudioBundle, Camera, Camera3d,
+    Commands, Component, DespawnRecursiveExt, Entity, EventReader, GlobalTransform, Handle,
+    IntoSystemConfigs, LinearRgba, Msaa, Name, NextState, OnEnter, OnExit, Query, Res, ResMut,
+    SystemSet, TextureAtlas, Time, Timer, TimerMode, Transform, Vec4, Window, With, Without,
 };
 use bevy::window::PrimaryWindow;
-use bevy_hanabi::{
-    AccelModifier, Attribute, ColorOverLifetimeModifier, EffectAsset, ExprWriter, Gradient,
-    LinearDragModifier, Module, ParticleEffect, ParticleEffectBundle, ParticleGroupSet, ScalarType,
-    SetAttributeModifier, SetPositionCircleModifier, SetPositionSphereModifier,
-    SetVelocitySphereModifier, ShapeDimension, SizeOverLifetimeModifier, Spawner,
-};
+use bevy_firework::bevy_utilitarian::prelude::{RandF32, RandVec3};
+use bevy_firework::core::{BlendMode, ParticleSpawner};
+use bevy_firework::curve::{FireworkCurve, FireworkGradient};
+use bevy_firework::emission_shape::EmissionShape;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
+use std::f32::consts::PI;
 use std::time::Duration;
 
 pub struct LevelLoadingPlugin;
@@ -42,9 +42,6 @@ impl Plugin for LevelLoadingPlugin {
         app.add_systems(
             OnEnter(GameState::InGame),
             (
-                setup_particles.run_if(in_state(GameState::InGame)),
-                setup_arise_particles.run_if(in_state(GameState::InGame)),
-                setup_attack_particles.run_if(in_state(GameState::InGame)),
                 setup.run_if(in_state(GameState::InGame)),
                 summon_world.run_if(in_state(GameState::InGame)),
             ),
@@ -128,6 +125,7 @@ fn setup(
         Camera3d::default(),
         MainCamera,
         Transform::from_xyz(0.0, 2.00, 10.0),
+        Msaa::Off,
     ));
 
     commands.spawn((
@@ -206,11 +204,40 @@ fn delete_everything(query: Query<Entity, With<SceneObject>>, mut commands: Comm
     }
 }
 fn setup_necessary(mut commands: Commands) {
-    // commands.spawn((
-    //     Camera3d::default(),
-    //     MainCamera,
-    //     Transform::from_xyz(0.0, 2.00, 10.0),
-    // ));
+    commands.spawn((
+        ParticleSpawner {
+            one_shot: false,
+            rate: 80.0,
+            emission_shape: EmissionShape::Circle {
+                normal: Vec3::Z,
+                radius: 30.0,
+            },
+            lifetime: RandF32 { min: 2.0, max: 8.0 },
+            inherit_parent_velocity: true,
+            initial_velocity: RandVec3 {
+                magnitude: RandF32 { min: 3., max: 5.6 },
+                direction: Vec3::X,
+                spread: PI / 2.0,
+            },
+            initial_scale: RandF32 {
+                min: 0.02,
+                max: 0.08,
+            },
+            scale_curve: FireworkCurve::uneven_samples(vec![(0., 4.0), (1., 0.0)]),
+            color: FireworkGradient::uneven_samples(vec![
+                (0., crate::effects::THE_GREEN.clone().with_alpha(0.0)),
+                (0.1, crate::effects::THE_GREEN.clone().with_alpha(0.2)),
+                (1., crate::effects::THE_GREEN.clone().with_alpha(0.0)),
+            ]),
+            blend_mode: BlendMode::Add,
+            linear_drag: 0.0,
+            acceleration: Vec3::new(1.0, 2.0, 0.0),
+            pbr: false,
+            starts_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(0., -0.25, -20.0),
+    ));
 }
 fn setup_loading(mut commands: Commands, asset_server: Res<AssetServer>) {}
 
@@ -224,6 +251,7 @@ fn setup_menu(
         Camera3d::default(),
         MainCamera,
         Transform::from_xyz(0.0, 2.00, 10.0),
+        Msaa::Off,
     ));
     commands.spawn((
         AudioPlayer::new(music_assets.menu.clone()),
@@ -241,6 +269,7 @@ fn setup_shop(mut commands: Commands, music_assets: Res<MusicAssets>) {
         Camera3d::default(),
         MainCamera,
         Transform::from_xyz(0.0, 2.00, 10.0),
+        Msaa::Off,
     ));
     commands.spawn((
         AudioPlayer::new(music_assets.shop.clone()),
@@ -268,6 +297,7 @@ fn setup_cut_scene(
         Camera3d::default(),
         MainCamera,
         Transform::from_xyz(0.0, 0.00, 10.0),
+        Msaa::Off,
     ));
     let unsheathed = Sprite3dBuilder {
         image: cut_scene_asset.cut_scene.clone(),
@@ -511,281 +541,4 @@ fn asset_placer_sytem(
             }
         }
     }
-}
-
-#[derive(Component)]
-pub struct SwordEffect;
-fn setup_particles(mut effects: ResMut<Assets<EffectAsset>>, mut commands: Commands) {
-    let mut color_gradient1 = Gradient::new();
-    color_gradient1.add_key(0.0, Vec4::new(0.0, 4.0, 0.0, 1.0));
-    color_gradient1.add_key(1.0, Vec4::new(0.0, 0.0, 0.0, 1.0));
-
-    let mut size_gradient1 = Gradient::new();
-    size_gradient1.add_key(0.0, Vec3::splat(0.05));
-    size_gradient1.add_key(0.3, Vec3::splat(0.05));
-    size_gradient1.add_key(1.0, Vec3::splat(0.0));
-
-    let writer = ExprWriter::new();
-
-    // Give a bit of variation by randomizing the age per particle. This will
-    // control the starting color and starting size of particles.
-    // let age = writer.lit(0.).uniform(writer.lit(0.2)).expr();
-    // let init_age = SetAttributeModifier::new(Attribute::AGE, age);
-
-    // Give a bit of variation by randomizing the lifetime per particle
-    let lifetime = writer.lit(0.5).normal(writer.lit(0.1)).expr();
-    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
-
-    // Add constant downward acceleration to simulate gravity
-    let accel = writer.lit(Vec3::Y * 8.).expr();
-    let update_accel = AccelModifier::new(accel);
-
-    // Add drag to make particles slow down a bit after the initial explosion
-    let drag = writer.lit(0.2).expr();
-    let update_drag = LinearDragModifier::new(drag);
-
-    let init_pos = SetPositionSphereModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        radius: writer.lit(0.1).expr(),
-        dimension: ShapeDimension::Volume,
-    };
-
-    // Give a bit of variation by randomizing the initial speed
-    let init_vel = SetVelocitySphereModifier {
-        center: writer.lit(-Vec3::Y).expr(),
-        speed: (writer.rand(ScalarType::Float) * writer.lit(0.1) + writer.lit(1.5)).expr(),
-    };
-
-    // Clear the trail velocity so trail particles just stay in place as they fade
-    // away
-    let init_vel_trail =
-        SetAttributeModifier::new(Attribute::VELOCITY, writer.lit(Vec3::ZERO).expr());
-
-    let lead = ParticleGroupSet::single(0);
-
-    let effect = EffectAsset::new(
-        // 2k lead particles, with 32 trail particles each
-        2048,
-        Spawner::rate(100.0.into()),
-        writer.finish(),
-    )
-    // Tie together trail particles to make arcs. This way we don't need a lot of them, yet there's
-    // a continuity between them.
-    .with_name("sword_effect")
-    .init_groups(init_pos, lead)
-    .init_groups(init_vel, lead)
-    .init_groups(init_lifetime, lead)
-    .update_groups(update_drag, lead)
-    .update_groups(update_accel, lead)
-    .render_groups(
-        ColorOverLifetimeModifier {
-            gradient: color_gradient1.clone(),
-        },
-        lead,
-    )
-    .render_groups(
-        SizeOverLifetimeModifier {
-            gradient: size_gradient1.clone(),
-            screen_space_size: false,
-        },
-        lead,
-    );
-
-    let effect1 = effects.add(effect);
-
-    commands.spawn((
-        SceneObject,
-        SwordEffect,
-        Name::new("sword_effect"),
-        ParticleEffectBundle {
-            effect: ParticleEffect::new(effect1),
-            transform: Transform::from_xyz(0.0, -0.3, -1.2),
-            ..Default::default()
-        },
-    ));
-}
-
-#[derive(Component)]
-pub struct AriseEffect;
-fn setup_arise_particles(mut effects: ResMut<Assets<EffectAsset>>, mut commands: Commands) {
-    let mut color_gradient1 = Gradient::new();
-    color_gradient1.add_key(0.0, Vec4::new(0.0, 4.0, 0.0, 1.0));
-    color_gradient1.add_key(1.0, Vec4::new(0.0, 0.0, 0.0, 1.0));
-
-    let mut size_gradient1 = Gradient::new();
-    size_gradient1.add_key(0.0, Vec3::splat(0.05));
-    size_gradient1.add_key(0.3, Vec3::splat(0.05));
-    size_gradient1.add_key(1.0, Vec3::splat(0.0));
-
-    let writer = ExprWriter::new();
-
-    // Give a bit of variation by randomizing the age per particle. This will
-    // control the starting color and starting size of particles.
-    // let age = writer.lit(0.).uniform(writer.lit(0.2)).expr();
-    // let init_age = SetAttributeModifier::new(Attribute::AGE, age);
-
-    // Give a bit of variation by randomizing the lifetime per particle
-    let lifetime = writer.lit(0.5).normal(writer.lit(0.1)).expr();
-    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
-
-    // Add constant downward acceleration to simulate gravity
-    let accel = writer.lit(Vec3::Y * 8.).expr();
-    let update_accel = AccelModifier::new(accel);
-
-    // Add drag to make particles slow down a bit after the initial explosion
-    let drag = writer.lit(0.2).expr();
-    let update_drag = LinearDragModifier::new(drag);
-
-    let init_pos = SetPositionSphereModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        radius: writer.lit(0.1).expr(),
-        dimension: ShapeDimension::Volume,
-    };
-
-    // Give a bit of variation by randomizing the initial speed
-    let init_vel = SetVelocitySphereModifier {
-        center: writer.lit(-Vec3::Y * 0.07).expr(),
-        speed: (writer.rand(ScalarType::Float) * writer.lit(1.2) + writer.lit(10.5)).expr(),
-    };
-
-    // Clear the trail velocity so trail particles just stay in place as they fade
-    // away
-    let init_vel_trail =
-        SetAttributeModifier::new(Attribute::VELOCITY, writer.lit(Vec3::ZERO).expr());
-
-    let lead = ParticleGroupSet::single(0);
-
-    let effect = EffectAsset::new(
-        // 2k lead particles, with 32 trail particles each
-        400,
-        Spawner::once(400.0.into(), false),
-        writer.finish(),
-    )
-    // Tie together trail particles to make arcs. This way we don't need a lot of them, yet there's
-    // a continuity between them.
-    .with_name("sword_arise_effect")
-    .init_groups(init_pos, lead)
-    .init_groups(init_vel, lead)
-    .init_groups(init_lifetime, lead)
-    .update_groups(update_drag, lead)
-    .update_groups(update_accel, lead)
-    .render_groups(
-        ColorOverLifetimeModifier {
-            gradient: color_gradient1.clone(),
-        },
-        lead,
-    )
-    .render_groups(
-        SizeOverLifetimeModifier {
-            gradient: size_gradient1.clone(),
-            screen_space_size: false,
-        },
-        lead,
-    );
-
-    let effect1 = effects.add(effect);
-
-    commands.spawn((
-        AriseEffect,
-        SceneObject,
-        Name::new("sword_arise_effect"),
-        ParticleEffectBundle {
-            effect: ParticleEffect::new(effect1),
-            transform: Transform::from_xyz(0.0, -0.3, -1.2),
-            ..Default::default()
-        },
-    ));
-}
-
-#[derive(Component)]
-pub struct AttackEffect;
-fn setup_attack_particles(mut effects: ResMut<Assets<EffectAsset>>, mut commands: Commands) {
-    let mut color_gradient1 = Gradient::new();
-    color_gradient1.add_key(0.0, Vec4::new(0.0, 4.0, 0.0, 1.0));
-    color_gradient1.add_key(1.0, Vec4::new(0.0, 0.0, 0.0, 1.0));
-
-    let mut size_gradient1 = Gradient::new();
-    size_gradient1.add_key(0.0, Vec3::splat(0.05));
-    size_gradient1.add_key(0.3, Vec3::splat(0.05));
-    size_gradient1.add_key(1.0, Vec3::splat(0.0));
-
-    let writer = ExprWriter::new();
-
-    // Give a bit of variation by randomizing the age per particle. This will
-    // control the starting color and starting size of particles.
-    // let age = writer.lit(0.).uniform(writer.lit(0.2)).expr();
-    // let init_age = SetAttributeModifier::new(Attribute::AGE, age);
-
-    // Give a bit of variation by randomizing the lifetime per particle
-    let lifetime = writer.lit(0.1).normal(writer.lit(0.1)).expr();
-    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
-
-    // Add constant downward acceleration to simulate gravity
-    let accel = writer.lit(Vec3::Y * 2.).expr();
-    let update_accel = AccelModifier::new(accel);
-
-    // Add drag to make particles slow down a bit after the initial explosion
-    let drag = writer.lit(0.2).expr();
-    let update_drag = LinearDragModifier::new(drag);
-
-    let init_pos = SetPositionCircleModifier {
-        center: writer.lit(Vec3::ZERO).expr(),
-        axis: writer.lit(Vec3::Y).expr(),
-        radius: writer.lit(0.1).expr(),
-        dimension: ShapeDimension::Volume,
-    };
-
-    // Give a bit of variation by randomizing the initial speed
-    let init_vel = SetVelocitySphereModifier {
-        center: writer.lit(-Vec3::Y * 0.00).expr(),
-        speed: (writer.rand(ScalarType::Float) * writer.lit(3.2) + writer.lit(0.1)).expr(),
-    };
-
-    // Clear the trail velocity so trail particles just stay in place as they fade
-    // away
-    let init_vel_trail =
-        SetAttributeModifier::new(Attribute::VELOCITY, writer.lit(Vec3::ZERO).expr());
-
-    let lead = ParticleGroupSet::single(0);
-
-    let effect = EffectAsset::new(
-        // 2k lead particles, with 32 trail particles each
-        100,
-        Spawner::once(50.0.into(), false),
-        writer.finish(),
-    )
-    // Tie together trail particles to make arcs. This way we don't need a lot of them, yet there's
-    // a continuity between them.
-    .with_name("sword_attack_effect")
-    .init_groups(init_pos, lead)
-    .init_groups(init_vel, lead)
-    .init_groups(init_lifetime, lead)
-    .update_groups(update_drag, lead)
-    .update_groups(update_accel, lead)
-    .render_groups(
-        ColorOverLifetimeModifier {
-            gradient: color_gradient1.clone(),
-        },
-        lead,
-    )
-    .render_groups(
-        SizeOverLifetimeModifier {
-            gradient: size_gradient1.clone(),
-            screen_space_size: false,
-        },
-        lead,
-    );
-
-    let effect1 = effects.add(effect);
-
-    commands.spawn((
-        AttackEffect,
-        SceneObject,
-        Name::new("sword_attack_effect"),
-        ParticleEffectBundle {
-            effect: ParticleEffect::new(effect1),
-            transform: Transform::from_xyz(0.0, -0.3, -0.9),
-            ..Default::default()
-        },
-    ));
 }

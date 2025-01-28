@@ -1,6 +1,7 @@
 mod animation;
 mod asset_load;
 mod combat;
+mod effects;
 mod enemy;
 mod game_manager;
 mod game_state;
@@ -21,6 +22,7 @@ use crate::asset_load::{
     MusicAssets, PlayerSounds, ShadowSprite, SkeletonSprite, SwordAnimation,
 };
 use crate::combat::{CombatPlugin, Hitter, Opfer};
+use crate::effects::EffectPlugin;
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
 use crate::game_manager::GameManagerPlugin;
 use crate::game_state::GameState;
@@ -51,7 +53,7 @@ use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt, LoadingStateConfig,
 };
 use bevy_common_assets::json::JsonAssetPlugin;
-use bevy_hanabi::HanabiPlugin;
+use bevy_firework::plugin::ParticleSystemPlugin;
 use bevy_pkv::PkvStore;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams, Sprite3dPlugin};
 use bevy_wasm_window_resize::WindowResizePlugin;
@@ -74,6 +76,8 @@ fn main() {
     app.add_plugins(CombatPlugin);
     app.add_plugins(PlayerPlugin);
     app.add_plugins(InputManagingPlugin);
+    app.add_plugins(EffectPlugin);
+    app.add_plugins(ParticleSystemPlugin::default());
     app.add_plugins(LevelLoadingPlugin);
     app.add_plugins(SummoningPlugin);
     app.add_plugins(SpawningPlugin);
@@ -83,7 +87,6 @@ fn main() {
     app.add_plugins(PhysicsPlugins::default());
     app.insert_resource(Gravity(Vec2::new(0.0, -9.81)));
     app.add_plugins(Sprite3dPlugin);
-    app.add_plugins(HanabiPlugin);
     app.init_state::<GameState>();
 
     app.add_loading_state(

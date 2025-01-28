@@ -1,4 +1,5 @@
 use crate::combat::Direction;
+use crate::effects::AriseCooldownEffect;
 use crate::enemy::Walking;
 use crate::input_manager::{Action, BasicControl};
 use crate::player_states::WalkAnim;
@@ -10,8 +11,9 @@ use bevy::input::gamepad::{GamepadConnection, GamepadEvent};
 use bevy::input::Axis;
 use bevy::prelude::{
     debug, info, Children, Commands, Component, Entity, EventReader, Gamepad, GamepadAxis,
-    GamepadButton, Quat, Query, Res, Resource, Transform, Update, Vec2, With,
+    GamepadButton, Quat, Query, Res, Resource, Transform, Update, Vec2, Vec3, With,
 };
+use bevy_firework::core::{ParticleSpawner, ParticleSpawnerData};
 use leafwing_input_manager::clashing_inputs::BasicInputs;
 use leafwing_input_manager::prelude::ActionState;
 
@@ -42,11 +44,21 @@ fn look_direction_system(
     }
 }
 
+fn signum_with_zero_handling(n: f32) -> f32 {
+    if n > 0.0 {
+        1.0
+    } else if n < 0.0 {
+        -1.0
+    } else {
+        0.0
+    }
+}
 fn movement(
     mut commands: Commands,
     input_query: Query<(&ActionState<Action>), With<BasicControl>>,
     mut rb_query: Query<(&mut LinearVelocity, &Controllable)>,
     mut walk_query: Query<&mut WalkAnim, With<Controllable>>,
+    mut arise_cooldown_effect_query: Query<(&mut ParticleSpawner), With<AriseCooldownEffect>>,
 ) {
     let mut x_input = 0.0;
     for (action) in &input_query {
@@ -61,6 +73,13 @@ fn movement(
     }
     for (mut walk) in walk_query.iter_mut() {
         walk.active = x_input.abs() > 0.01;
+    }
+    for (mut effect) in arise_cooldown_effect_query.iter_mut() {
+        if (signum_with_zero_handling(effect.acceleration.x) != signum_with_zero_handling(x_input))
+        {
+            effect.acceleration =
+                Vec3::Y * 6.0 + signum_with_zero_handling(x_input) * Vec3::X * 2.0;
+        }
     }
 }
 #[derive(PhysicsLayer, Default)]

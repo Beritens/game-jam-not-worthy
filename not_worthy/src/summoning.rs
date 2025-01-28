@@ -3,10 +3,11 @@ use crate::asset_load::{
     EnemySounds, EnemySprite, GameData, GameInfos, ShadowSprite, SkeletonSprite,
 };
 use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
+use crate::effects::{AriseCooldownEffect, AriseEffect};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
 use crate::game_state::GameState;
 use crate::input_manager::{Action, BasicControl};
-use crate::level_loading::{AriseEffect, SceneObject, SwordEffect};
+use crate::level_loading::SceneObject;
 use crate::movement::{
     get_enemy_collision_layers, get_player_collision_layers, Controllable, GameLayer,
 };
@@ -31,7 +32,7 @@ use bevy::prelude::{
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
 use bevy::utils::tracing::Instrument;
-use bevy_hanabi::EffectInitializers;
+use bevy_firework::core::{ParticleData, ParticleSpawnerData};
 use bevy_pkv::PkvStore;
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use leafwing_input_manager::action_state::ActionState;
@@ -139,13 +140,13 @@ struct PlayerSettings {
 
 fn update_effect_system(
     arise_settings_query: Query<(&AriseSettings)>,
-    mut effect_query: Query<&mut EffectInitializers, With<SwordEffect>>,
+    mut arise_cooldown_effect_query: Query<(&mut ParticleSpawnerData), With<AriseCooldownEffect>>,
 ) {
-    let Ok(mut arise_settings) = arise_settings_query.get_single() else {
+    let Ok(arise_settings) = arise_settings_query.get_single() else {
         return;
     };
-    for (mut spawner) in effect_query.iter_mut() {
-        spawner.set_active(arise_settings.cooldown.finished());
+    for (mut effect) in arise_cooldown_effect_query.iter_mut() {
+        effect.enabled = arise_settings.cooldown.finished();
     }
 }
 fn arise_system(
@@ -157,7 +158,7 @@ fn arise_system(
     shadow_asset: Res<ShadowSprite>,
     mut sprite_params: Sprite3dParams,
     mut arise_settings_query: Query<(&mut AriseSettings)>,
-    mut effect_query: Query<&mut EffectInitializers, With<AriseEffect>>,
+    mut arise_effect_query: Query<(&mut ParticleSpawnerData), With<AriseEffect>>,
 ) {
     let mut summon = false;
     for (action) in &input_query {
@@ -179,10 +180,9 @@ fn arise_system(
         summon = false;
     }
     if (summon) {
-        for (mut spawner) in effect_query.iter_mut() {
-            spawner.reset();
+        for (mut effect) in arise_effect_query.iter_mut() {
+            effect.enabled = true;
         }
-
         let player_settings = PlayerSettings {
             knockback: arise_settings.knockback,
             speed: arise_settings.speed,
