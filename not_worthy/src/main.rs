@@ -19,7 +19,8 @@ mod ui_stuff;
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
 use crate::asset_load::{
     CutSceneArt, CutSceneSounds, EnemySounds, EnemySprite, EnvironmentArt, GameData, GameInfos,
-    MusicAssets, PlayerSounds, ShadowSprite, SkeletonSprite, SwordAnimation, UISounds,
+    Messages, MusicAssets, PlayerSounds, ShadowSprite, SkeletonSprite, SwordAnimation, UIAssets,
+    UISounds,
 };
 use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::effects::EffectPlugin;
@@ -69,6 +70,8 @@ fn main() {
     }));
     app.add_plugins(WindowResizePlugin);
     app.add_plugins(JsonAssetPlugin::<GameInfos>::new(&["data.json"]));
+
+    app.add_plugins(JsonAssetPlugin::<Messages>::new(&["messages.json"]));
     app.add_plugins(MovementPlugin);
     app.add_plugins(GameManagerPlugin);
     app.add_plugins(HitDetectionPlugin);
@@ -95,6 +98,7 @@ fn main() {
             .load_collection::<SwordAnimation>()
             .load_collection::<EnvironmentArt>()
             .load_collection::<CutSceneArt>()
+            .load_collection::<UIAssets>()
             .load_collection::<GameData>()
             .load_collection::<EnemySounds>()
             .load_collection::<PlayerSounds>()

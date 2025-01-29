@@ -158,3 +158,16 @@ pub struct GameData {
     #[asset(path = "game.data.json")]
     pub data: Handle<GameInfos>,
 }
+
+#[derive(serde::Deserialize, bevy::asset::Asset, bevy::reflect::TypePath)]
+pub struct Messages {
+    pub messages: Vec<String>,
+}
+#[derive(AssetCollection, Resource)]
+pub struct UIAssets {
+    #[asset(path = "death.messages.json")]
+    pub death_messages: Handle<Messages>,
+
+    #[asset(path = "gradient.png")]
+    pub gradient: Handle<Image>,
+}

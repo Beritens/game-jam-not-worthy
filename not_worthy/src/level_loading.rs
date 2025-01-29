@@ -381,7 +381,7 @@ fn setup_cut_scene(
         Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(1.0, 1.0, 1.0)),
         unsheathed.bundle(&mut sprite_params),
         CutSceneTime {
-            timer: Timer::new(Duration::from_secs_f32(2.0), TimerMode::Once),
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
         },
     ));
 

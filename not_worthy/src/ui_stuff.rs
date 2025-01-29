@@ -1,4 +1,4 @@
-use crate::asset_load::{GameData, GameInfos, ShopItem, UISounds};
+use crate::asset_load::{GameData, GameInfos, Messages, ShopItem, UIAssets, UISounds};
 use crate::game_manager::Scorer;
 use crate::game_state::GameState;
 use crate::game_state::GameState::Shop;
@@ -13,11 +13,15 @@ use bevy::ecs::system::lifetimeless::SCommands;
 use bevy::hierarchy::DespawnRecursiveExt;
 use bevy::prelude::{
     default, in_state, AlignItems, BackgroundColor, BuildChildren, Button, Changed, ChildBuild,
-    ChildBuilder, Commands, Component, Entity, Interaction, IntoSystemConfigs, JustifyContent,
-    NextState, Node, OnEnter, Query, Res, ResMut, Text, TextColor, TextFont, UiRect, Val, With,
+    ChildBuilder, Commands, Component, Entity, ImageNode, Interaction, IntoSystemConfigs,
+    JustifyContent, NextState, Node, OnEnter, Quat, Query, Res, ResMut, Text, TextColor, TextFont,
+    Time, Timer, Transform, UiRect, Val, With,
 };
-use bevy::ui::FlexDirection;
+use bevy::time::TimerMode;
+use bevy::ui::{FlexDirection, ZIndex};
 use bevy_pkv::PkvStore;
+use std::f32::consts::PI;
+use std::time::Duration;
 
 #[derive(Component)]
 struct SelectedOption;
@@ -35,6 +39,7 @@ impl Plugin for UIStuffPlugin {
         app.add_systems(OnEnter(GameState::Menu), (setup_main_menu));
         app.add_systems(OnEnter(GameState::Loading), (setup_loading_ui));
         app.add_systems(OnEnter(GameState::CompilingShaders), (setup_compiling_ui));
+        app.add_systems(OnEnter(GameState::CutScene), (setup_cut_scene_ui));
         app.add_systems(
             Update,
             (button_system, shop_action, setup_shop).run_if(in_state(GameState::Shop)),
@@ -46,6 +51,11 @@ impl Plugin for UIStuffPlugin {
         app.add_systems(
             Update,
             (button_system, menu_action).run_if(in_state(GameState::Menu)),
+        );
+
+        app.add_systems(
+            Update,
+            (text_appear_system).run_if(in_state(GameState::CutScene)),
         );
     }
 }
@@ -233,6 +243,7 @@ fn setup_shop(
     mut pkv: ResMut<PkvStore>,
     shop_query: Query<Entity, With<ShopScreen>>,
     outdated_query: Query<Entity, With<Outdated>>,
+    ui_assets: Res<UIAssets>,
 ) {
     let button_node = Node {
         width: Val::Vh(27.0),
@@ -254,6 +265,36 @@ fn setup_shop(
         } else {
             return;
         }
+    } else {
+        commands
+            .spawn((
+                SceneObject,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        SceneObject,
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            ..default()
+                        },
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            SceneObject,
+                            ImageNode::new(ui_assets.gradient.clone()),
+                            Transform::from_rotation(Quat::from_rotation_z(0.5 * PI)),
+                        ));
+                    });
+            });
     }
 
     let knockback_level = get_sotred_value(&mut pkv, "knockback");
@@ -267,6 +308,7 @@ fn setup_shop(
     let Some(game_data) = game_datas.get(game_data_res.data.id()) else {
         return;
     };
+
     commands
         .spawn((
             SceneObject,
@@ -278,6 +320,7 @@ fn setup_shop(
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
+            ZIndex(3),
             ShopScreen,
         ))
         .with_children(|parent| {
@@ -679,4 +722,70 @@ fn setup_compiling_ui(mut commands: Commands) {
                 },
             ));
         });
+}
+
+//loading
+fn setup_cut_scene_ui(
+    mut commands: Commands,
+    ui_assets: Res<UIAssets>,
+    death_messages: ResMut<Assets<Messages>>,
+) {
+    let Some(messages) = death_messages.get(ui_assets.death_messages.id()) else {
+        return;
+    };
+    let text_font = TextFont {
+        font_size: 20.0,
+        ..default()
+    };
+    commands
+        .spawn((
+            SceneObject,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::End,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            let message =
+                messages.messages[(rand::random::<usize>() % messages.messages.len())].to_string();
+            parent.spawn((
+                CompText,
+                SceneObject,
+                TextAppear {
+                    timer: Timer::new(
+                        Duration::from_secs_f32(3.0 / message.len() as f32),
+                        TimerMode::Repeating,
+                    ),
+                    text: message,
+                    curr: 0,
+                },
+                Text::new(""),
+                text_font.clone(),
+                TextColor(TEXT_COLOR),
+                Node {
+                    width: Val::Percent(25.0),
+                    margin: UiRect::all(Val::Vh(10.0)),
+                    ..default()
+                },
+            ));
+        });
+}
+
+#[derive(Component)]
+pub struct TextAppear {
+    timer: Timer,
+    text: String,
+    curr: usize,
+}
+fn text_appear_system(mut text_appear_query: Query<(&mut Text, &mut TextAppear)>, time: Res<Time>) {
+    for (mut text, mut appear) in text_appear_query.iter_mut() {
+        appear.timer.tick(time.delta());
+
+        appear.curr += appear.timer.times_finished_this_tick() as usize;
+
+        text.0 = appear.text.clone()[..appear.curr.min(appear.text.len())].to_string();
+    }
 }
