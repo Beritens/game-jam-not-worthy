@@ -4,7 +4,7 @@ use crate::asset_load::{
     SkeletonSprite, SwordAnimation,
 };
 use crate::combat::CombatPlugin;
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PauseState};
 use crate::spawning::{EnemySpawner, EnemyType};
 use crate::summoning::{spawn_deceased, spawn_player, DeceasedSpawnPoint};
 use crate::ui_stuff::CompText;
@@ -130,7 +130,13 @@ fn check_ready(
     }
 }
 
-fn setup(mut commands: Commands, enemy_sounds: Res<EnemySounds>, music_assets: Res<MusicAssets>) {
+fn setup(
+    mut commands: Commands,
+    enemy_sounds: Res<EnemySounds>,
+    music_assets: Res<MusicAssets>,
+    mut paused_state: ResMut<NextState<PauseState>>,
+) {
+    paused_state.set(PauseState::Paused);
     commands.spawn((
         AudioPlayer::new(music_assets.in_game.clone()),
         PlaybackSettings {
@@ -176,6 +182,18 @@ fn setup(mut commands: Commands, enemy_sounds: Res<EnemySounds>, music_assets: R
         },
         Transform::from_xyz(1.5, 0.0, 0.0),
     ));
+
+    // if (true) {
+    //     for i in -50..50 {
+    //         commands.spawn((
+    //             SceneObject {},
+    //             DeceasedSpawnPoint {
+    //                 enemy_type: EnemyType::BASIC,
+    //             },
+    //             Transform::from_xyz(6.0 * i as f32 / 50.0, 0.0, 0.0),
+    //         ));
+    //     }
+    // }
     commands.spawn((
         Transform::from_xyz(30.0, 2.00, 0.0),
         EnemySpawner {

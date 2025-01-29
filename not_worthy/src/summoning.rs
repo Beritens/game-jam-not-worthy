@@ -5,7 +5,7 @@ use crate::asset_load::{
 use crate::combat::{Dead, Direction, Health, Hitter, Opfer};
 use crate::effects::{AriseCooldownEffect, AriseEffect};
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, Target, Walker};
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PauseState};
 use crate::input_manager::{Action, BasicControl};
 use crate::level_loading::SceneObject;
 use crate::movement::{
@@ -27,8 +27,8 @@ use bevy::image::Image;
 use bevy::math::{Quat, Vec2, Vec3};
 use bevy::prelude::{
     default, in_state, AlphaMode, BuildChildren, ChildBuild, Circle, Commands, Component,
-    DespawnRecursiveExt, Entity, IntoSystemConfigs, OnEnter, PreUpdate, Query, Res, ResMut,
-    TextureAtlasLayout, Time, Timer, Transform, Visibility, With,
+    DespawnRecursiveExt, Entity, IntoSystemConfigs, NextState, OnEnter, PreUpdate, Query, Res,
+    ResMut, TextureAtlasLayout, Time, Timer, Transform, Visibility, With,
 };
 use bevy::sprite::TextureAtlas;
 use bevy::time::TimerMode;
@@ -163,6 +163,7 @@ fn arise_system(
     mut sprite_params: Sprite3dParams,
     mut arise_settings_query: Query<(&mut AriseSettings)>,
     mut arise_effect_query: Query<(&mut ParticleSpawnerData), With<AriseEffect>>,
+    mut paused_state: ResMut<NextState<PauseState>>,
 ) {
     let mut summon = false;
     for (action) in &input_query {
@@ -184,6 +185,7 @@ fn arise_system(
         summon = false;
     }
     if (summon) {
+        paused_state.set(PauseState::Running);
         for (mut effect) in arise_effect_query.iter_mut() {
             effect.enabled = true;
         }

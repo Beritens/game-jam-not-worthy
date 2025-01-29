@@ -26,7 +26,7 @@ use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::effects::EffectPlugin;
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
 use crate::game_manager::GameManagerPlugin;
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PauseState};
 use crate::hit_detection::{HitDetection, HitDetectionPlugin};
 use crate::input_manager::InputManagingPlugin;
 use crate::level_loading::LevelLoadingPlugin;
@@ -110,6 +110,8 @@ fn main() {
             .load_collection::<ShadowSprite>()
             .load_collection::<SkeletonSprite>(),
     );
+
+    app.insert_state(PauseState::Paused);
 
     app.add_plugins(FrameTimeDiagnosticsPlugin::default());
     app.insert_resource(PkvStore::new("beritens", "grumpy_sword"));

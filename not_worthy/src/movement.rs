@@ -1,6 +1,7 @@
 use crate::combat::{Cause, Dead, Direction};
 use crate::effects::AriseCooldownEffect;
 use crate::enemy::Walking;
+use crate::game_state::PauseState;
 use crate::input_manager::{Action, BasicControl};
 use crate::player_states::WalkAnim;
 use avian2d::collision::CollisionLayers;
@@ -10,8 +11,9 @@ use bevy::app::{App, Plugin};
 use bevy::input::gamepad::{GamepadConnection, GamepadEvent};
 use bevy::input::Axis;
 use bevy::prelude::{
-    debug, info, Children, Commands, Component, Entity, EventReader, Gamepad, GamepadAxis,
-    GamepadButton, Quat, Query, Res, Resource, Transform, Update, Vec2, Vec3, With,
+    debug, in_state, info, Children, Commands, Component, Entity, EventReader, Gamepad,
+    GamepadAxis, GamepadButton, IntoSystemConfigs, Quat, Query, Res, Resource, Transform, Update,
+    Vec2, Vec3, With,
 };
 use bevy_firework::core::{ParticleSpawner, ParticleSpawnerData};
 use leafwing_input_manager::clashing_inputs::BasicInputs;
@@ -24,7 +26,8 @@ impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (movement, look_direction_system, barrier_death_system),
+            (movement, look_direction_system, barrier_death_system)
+                .run_if(in_state(PauseState::Running)),
         );
         // add things to your app here
     }

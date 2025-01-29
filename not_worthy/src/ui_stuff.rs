@@ -1,7 +1,7 @@
 use crate::asset_load::{GameData, GameInfos, Messages, ShopItem, UIAssets, UISounds};
 use crate::game_manager::Scorer;
-use crate::game_state::GameState;
 use crate::game_state::GameState::Shop;
+use crate::game_state::{GameState, PauseState};
 use crate::level_loading::SceneObject;
 use crate::state_handling::{get_sotred_value, store_value};
 use bevy::app::{App, Plugin, Update};
@@ -40,6 +40,7 @@ impl Plugin for UIStuffPlugin {
         app.add_systems(OnEnter(GameState::Loading), (setup_loading_ui));
         app.add_systems(OnEnter(GameState::CompilingShaders), (setup_compiling_ui));
         app.add_systems(OnEnter(GameState::CutScene), (setup_cut_scene_ui));
+        app.add_systems(OnEnter(PauseState::Running), (delete_preamble));
         app.add_systems(
             Update,
             (button_system, shop_action, setup_shop).run_if(in_state(GameState::Shop)),
@@ -53,6 +54,12 @@ impl Plugin for UIStuffPlugin {
             (button_system, menu_action).run_if(in_state(GameState::Menu)),
         );
 
+        app.add_systems(
+            Update,
+            (text_appear_system)
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(PauseState::Paused)),
+        );
         app.add_systems(
             Update,
             (text_appear_system).run_if(in_state(GameState::CutScene)),
@@ -615,11 +622,48 @@ fn menu_action(
 
 #[derive(Component)]
 struct ScoreDispay;
+
+#[derive(Component)]
+struct Preamble;
 fn setup_game_ui(mut commands: Commands) {
     let text_font = TextFont {
         font_size: 33.0,
         ..default()
     };
+    let text_font_smol = TextFont {
+        font_size: 25.0,
+        ..default()
+    };
+    commands
+        .spawn((
+            Preamble,
+            SceneObject,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                SceneObject,
+                TextAppear {
+                    timer: Timer::new(Duration::from_secs_f32(0.02), TimerMode::Repeating),
+                    text: "press space to arise the dead".to_string(),
+                    curr: 0,
+                },
+                Text::new(""),
+                text_font_smol.clone(),
+                TextColor(TEXT_COLOR),
+                Node {
+                    margin: UiRect::all(Val::Vh(4.0)),
+                    ..default()
+                },
+            ));
+        });
+
     commands
         .spawn((
             SceneObject,
@@ -656,6 +700,12 @@ fn update_socre_display_system(
 
     for mut text in display_query.iter_mut() {
         text.0 = scorer.current.to_string();
+    }
+}
+
+fn delete_preamble(mut commands: Commands, mut preamble_query: Query<Entity, With<Preamble>>) {
+    for entity in preamble_query.iter_mut() {
+        commands.entity(entity).despawn_recursive();
     }
 }
 

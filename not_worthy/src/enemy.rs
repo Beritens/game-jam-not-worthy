@@ -2,7 +2,7 @@ use crate::animation::AnimationManager;
 use crate::asset_load::{EnemySounds, EnemySprite};
 use crate::combat::{hit_test, CombatSet, Dead, Direction, Hitter, Hitting, Opfer, Stunned};
 use crate::game_manager::Scorer;
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PauseState};
 use crate::hit_detection::{test_point, HitDetection};
 use crate::level_loading::SceneObject;
 use crate::movement::GameLayer;
@@ -31,11 +31,18 @@ impl Plugin for EnemyPlugin {
         app.add_systems(
             Update,
             (
-                walk_to_target.before(CombatSet),
-                walk_to_target_time_travel.before(walk_to_target),
+                walk_to_target
+                    .before(CombatSet)
+                    .run_if(in_state(GameState::InGame))
+                    .run_if(in_state(PauseState::Running)),
+                walk_to_target_time_travel
+                    .before(walk_to_target)
+                    .run_if(in_state(GameState::InGame))
+                    .run_if(in_state(PauseState::Running)),
                 attack_system
                     .before(CombatSet)
-                    .run_if(in_state(GameState::InGame)),
+                    .run_if(in_state(GameState::InGame))
+                    .run_if(in_state(PauseState::Running)),
             ),
         );
         app.add_systems(FixedUpdate, check_attack_system);
@@ -52,7 +59,8 @@ impl Plugin for EnemyPlugin {
                     .in_set(EnemBehaviorSet),
                 basic_enem_dead_state_system.before(EnemBehaviorSet),
             )
-                .run_if(in_state(GameState::InGame)),),
+                .run_if(in_state(GameState::InGame)),)
+                .run_if(in_state(PauseState::Running)),
         );
         // add things to your app here
     }

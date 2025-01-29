@@ -1,6 +1,6 @@
 use crate::asset_load::{EnemySounds, GameData, GameInfos, PlayerSounds};
 use crate::effects::{AriseEffect, AttackEffect};
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PauseState};
 use crate::input_manager::{Action, BasicControl};
 use crate::level_loading::SceneObject;
 use crate::movement::{Controllable, GameLayer};
@@ -43,7 +43,8 @@ impl Plugin for CombatPlugin {
                     .run_if(in_state(GameState::InGame)),
                 enemy_take_damage.after(hit_system),
             )
-                .in_set(CombatSet)),
+                .in_set(CombatSet))
+            .run_if(in_state(PauseState::Running)),
         );
         // app.add_systems(Update, (player_hit));
     }

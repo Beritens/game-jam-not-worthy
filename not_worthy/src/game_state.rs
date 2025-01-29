@@ -10,3 +10,10 @@ pub enum GameState {
     CutScene,
     Shop,
 }
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
+pub enum PauseState {
+    #[default]
+    Paused,
+    Running,
+}

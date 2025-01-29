@@ -4,7 +4,7 @@ use crate::combat::{Direction, Health, Hitter, Opfer};
 use crate::enemy::{
     AttackType, BacicEnemActiveState, BasicEnemStateMachine, HitComposer, Target, Walker,
 };
-use crate::game_state::GameState;
+use crate::game_state::{GameState, PauseState};
 use crate::input_manager::{Action, BasicControl};
 use crate::level_loading::SceneObject;
 use crate::movement::{get_enemy_collision_layers, GameLayer};
@@ -36,12 +36,14 @@ impl Plugin for SpawningPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (
-                continuous_spawning_system.run_if(in_state(GameState::InGame)),
-                spawn_enemy_system.run_if(in_state(GameState::InGame)),
-                spawn_fast_enemy_system.run_if(in_state(GameState::InGame)),
-                spawn_big_enemy_system.run_if(in_state(GameState::InGame)),
-            ),
+            ((
+                continuous_spawning_system,
+                spawn_enemy_system,
+                spawn_fast_enemy_system,
+                spawn_big_enemy_system,
+            )
+                .run_if(in_state(GameState::InGame))
+                .run_if(in_state(PauseState::Running))),
         );
     }
 }
