@@ -139,7 +139,7 @@ fn check_attack_system(
 
 #[derive(Component)]
 pub struct AttackingHit {
-    new: bool,
+    pub new: bool,
 }
 #[derive(Component)]
 pub struct HitComposer {

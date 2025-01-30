@@ -1,4 +1,6 @@
 target
 .idea
-webbuild
+webbuild/assets
+webbuild/out
+webbuild/webbuild.zip
 out

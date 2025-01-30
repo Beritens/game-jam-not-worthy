@@ -183,94 +183,108 @@ fn setup(
         Transform::from_xyz(1.5, 0.0, 0.0),
     ));
 
-    // if (true) {
-    //     for i in -50..50 {
-    //         commands.spawn((
-    //             SceneObject {},
-    //             DeceasedSpawnPoint {
-    //                 enemy_type: EnemyType::BASIC,
-    //             },
-    //             Transform::from_xyz(6.0 * i as f32 / 50.0, 0.0, 0.0),
-    //         ));
-    //     }
-    // }
+    if (true) {
+        for i in -50..50 {
+            commands.spawn((
+                SceneObject {},
+                DeceasedSpawnPoint {
+                    enemy_type: EnemyType::BASIC,
+                },
+                Transform::from_xyz(6.0 * i as f32 / 50.0, 0.0, 0.0),
+            ));
+        }
+    }
+    // commands.spawn((
+    //     Transform::from_xyz(30.0, 2.00, 0.0),
+    //     EnemySpawner {
+    //         inactive: Timer::default(),
+    //         preheat: 0.0,
+    //         min: 0.2,
+    //         max: 10.0,
+    //         factor: 0.9,
+    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+    //         enemy_type: EnemyType::BASIC,
+    //     },
+    //     SceneObject,
+    // ));
+    //
+    // commands.spawn((
+    //     Transform::from_xyz(-30.0, 2.00, 0.0),
+    //     EnemySpawner {
+    //         inactive: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
+    //         preheat: 0.0,
+    //         min: 0.2,
+    //         max: 10.0,
+    //         factor: 0.9,
+    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+    //         enemy_type: EnemyType::BASIC,
+    //     },
+    //     SceneObject,
+    // ));
+    // commands.spawn((
+    //     Transform::from_xyz(-30.0, 2.00, 0.0),
+    //     EnemySpawner {
+    //         inactive: Timer::default(),
+    //         preheat: 2.0,
+    //         min: 0.1,
+    //         max: 10.0,
+    //         factor: 1.1,
+    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+    //         enemy_type: EnemyType::FAST,
+    //     },
+    //     SceneObject,
+    // ));
+    //
+    // commands.spawn((
+    //     Transform::from_xyz(30.0, 2.00, 0.0),
+    //     EnemySpawner {
+    //         inactive: Timer::default(),
+    //         preheat: 3.0,
+    //         min: 0.1,
+    //         max: 10.0,
+    //         factor: 1.1,
+    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+    //         enemy_type: EnemyType::FAST,
+    //     },
+    //     SceneObject,
+    // ));
+    // commands.spawn((
+    //     Transform::from_xyz(-30.0, 2.00, 0.0),
+    //     EnemySpawner {
+    //         inactive: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Once),
+    //         preheat: 2.0,
+    //         min: 1.0,
+    //         max: 10.0,
+    //         factor: 0.9,
+    //         timer: Timer::new(Duration::from_secs_f32(45.0), TimerMode::Repeating),
+    //         enemy_type: EnemyType::BIG,
+    //     },
+    //     SceneObject,
+    // ));
+    //
+    // commands.spawn((
+    //     Transform::from_xyz(30.0, 2.00, 0.0),
+    //     EnemySpawner {
+    //         inactive: Timer::new(Duration::from_secs_f32(20.0), TimerMode::Once),
+    //         preheat: 0.0,
+    //         min: 1.0,
+    //         max: 10.0,
+    //         factor: 0.9,
+    //         timer: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Repeating),
+    //         enemy_type: EnemyType::BIG,
+    //     },
+    //     SceneObject,
+    // ));
     commands.spawn((
         Transform::from_xyz(30.0, 2.00, 0.0),
         EnemySpawner {
+            once: true,
             inactive: Timer::default(),
-            preheat: 0.0,
-            min: 0.2,
-            max: 10.0,
-            factor: 0.9,
-            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-            enemy_type: EnemyType::BASIC,
-        },
-        SceneObject,
-    ));
-
-    commands.spawn((
-        Transform::from_xyz(-30.0, 2.00, 0.0),
-        EnemySpawner {
-            inactive: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
-            preheat: 0.0,
-            min: 0.2,
-            max: 10.0,
-            factor: 0.9,
-            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-            enemy_type: EnemyType::BASIC,
-        },
-        SceneObject,
-    ));
-    commands.spawn((
-        Transform::from_xyz(-30.0, 2.00, 0.0),
-        EnemySpawner {
-            inactive: Timer::default(),
-            preheat: 2.0,
-            min: 0.1,
-            max: 10.0,
-            factor: 1.1,
-            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-            enemy_type: EnemyType::FAST,
-        },
-        SceneObject,
-    ));
-
-    commands.spawn((
-        Transform::from_xyz(30.0, 2.00, 0.0),
-        EnemySpawner {
-            inactive: Timer::default(),
-            preheat: 3.0,
-            min: 0.1,
-            max: 10.0,
-            factor: 1.1,
-            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-            enemy_type: EnemyType::FAST,
-        },
-        SceneObject,
-    ));
-    commands.spawn((
-        Transform::from_xyz(-30.0, 2.00, 0.0),
-        EnemySpawner {
-            inactive: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Once),
-            preheat: 2.0,
+            preheat: 17.0,
             min: 1.0,
             max: 10.0,
             factor: 0.9,
-            timer: Timer::new(Duration::from_secs_f32(45.0), TimerMode::Repeating),
-            enemy_type: EnemyType::BIG,
-        },
-        SceneObject,
-    ));
-
-    commands.spawn((
-        Transform::from_xyz(30.0, 2.00, 0.0),
-        EnemySpawner {
-            inactive: Timer::new(Duration::from_secs_f32(20.0), TimerMode::Once),
-            preheat: 0.0,
-            min: 1.0,
-            max: 10.0,
-            factor: 0.9,
-            timer: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Repeating),
+            timer: Timer::new(Duration::from_secs_f32(0.10), TimerMode::Repeating),
             enemy_type: EnemyType::BIG,
         },
         SceneObject,

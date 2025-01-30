@@ -2,6 +2,7 @@ mod animation;
 mod asset_load;
 mod combat;
 mod effects;
+mod end_boss;
 mod enemy;
 mod game_manager;
 mod game_state;
