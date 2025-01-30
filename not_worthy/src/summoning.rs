@@ -411,6 +411,20 @@ pub fn spawn_deceased(
                     sprite.bundle_with_atlas(&mut sprite_params, texture_atlas.clone()),
                 ));
             }
+            EnemyType::BOSS => {
+                commands.spawn((
+                    SceneObject {},
+                    Transform::from_translation(Vec3::new(
+                        transform.translation.x,
+                        -0.5,
+                        0.5 + random,
+                    ))
+                    .with_scale(Vec3::splat(2.0))
+                    .with_rotation(Quat::from_rotation_z(PI / 2.0)),
+                    Deceased {},
+                    sprite.bundle_with_atlas(&mut sprite_params, texture_atlas.clone()),
+                ));
+            }
         }
         commands.entity(entity).despawn();
     }

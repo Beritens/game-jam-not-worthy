@@ -39,6 +39,36 @@ pub struct EnemySprite {
 }
 
 #[derive(AssetCollection, Resource)]
+pub struct BossSprite {
+    #[asset(texture_atlas_layout(
+        tile_size_x = 512,
+        tile_size_y = 512,
+        columns = 1,
+        rows = 15,
+        padding_x = 0,
+        padding_y = 0,
+        offset_x = 0,
+        offset_y = 0
+    ))]
+    pub layout: Handle<TextureAtlasLayout>,
+    #[asset(path = "end_boss.png")]
+    pub image: Handle<Image>,
+    #[asset(texture_atlas_layout(
+        tile_size_x = 128,
+        tile_size_y = 128,
+        columns = 1,
+        rows = 2,
+        padding_x = 0,
+        padding_y = 0,
+        offset_x = 0,
+        offset_y = 0
+    ))]
+    pub stomp_layout: Handle<TextureAtlasLayout>,
+    #[asset(path = "stomp.png")]
+    pub stomp_attack: Handle<Image>,
+}
+
+#[derive(AssetCollection, Resource)]
 pub struct ShadowSprite {
     #[asset(path = "shadow.png")]
     pub image: Handle<Image>,

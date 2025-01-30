@@ -264,7 +264,9 @@ fn hit(
     );
     let mut count = 0;
     for entity in intersections.iter() {
-        // let opfer = opfer_query.get(*entity);
+        if (spatial_query_filter.mask.0 & 2 > 0) {
+            println!("ouch");
+        } // let opfer = opfer_query.get(*entity);
         if let Ok(opfer) = opfer_query.get(*entity) {
             if ((1 << opfer.hit_layer & hitter.hit_mask) != 0) {
                 count += 1;
@@ -273,6 +275,10 @@ fn hit(
                 }
             }
         }
+    }
+
+    if (spatial_query_filter.mask.0 & 2 > 0) {
+        println!("getting hit {}", count);
     }
     for entity in intersections.iter() {
         if let Ok(mut opfer) = opfer_query.get_mut(*entity) {

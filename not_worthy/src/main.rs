@@ -19,12 +19,13 @@ mod ui_stuff;
 
 use crate::animation::{AnimationTimer, SpriteAnimationPlugin};
 use crate::asset_load::{
-    CutSceneArt, CutSceneSounds, EnemySounds, EnemySprite, EnvironmentArt, GameData, GameInfos,
-    Messages, MusicAssets, PlayerSounds, ShadowSprite, SkeletonSprite, SwordAnimation, UIAssets,
-    UISounds,
+    BossSprite, CutSceneArt, CutSceneSounds, EnemySounds, EnemySprite, EnvironmentArt, GameData,
+    GameInfos, Messages, MusicAssets, PlayerSounds, ShadowSprite, SkeletonSprite, SwordAnimation,
+    UIAssets, UISounds,
 };
 use crate::combat::{CombatPlugin, Hitter, Opfer};
 use crate::effects::EffectPlugin;
+use crate::end_boss::BossPlugin;
 use crate::enemy::{BacicEnemActiveState, BasicEnemStateMachine, EnemyPlugin, Target, Walker};
 use crate::game_manager::GameManagerPlugin;
 use crate::game_state::{GameState, PauseState};
@@ -87,6 +88,7 @@ fn main() {
     app.add_plugins(SpawningPlugin);
     app.add_plugins(UIStuffPlugin);
     app.add_plugins(EnemyPlugin);
+    app.add_plugins(BossPlugin);
     app.add_plugins(SpriteAnimationPlugin);
     app.add_plugins(PhysicsPlugins::default());
     app.insert_resource(Gravity(Vec2::new(0.0, -9.81)));
@@ -108,6 +110,7 @@ fn main() {
             .load_collection::<MusicAssets>()
             // .load_collection::<DebugSprite>()
             .load_collection::<EnemySprite>()
+            .load_collection::<BossSprite>()
             .load_collection::<ShadowSprite>()
             .load_collection::<SkeletonSprite>(),
     );

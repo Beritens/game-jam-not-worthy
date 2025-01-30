@@ -395,8 +395,6 @@ pub struct BacicEnemDeadState {
 fn basic_enem_dead_state_system(
     mut commands: Commands,
     mut dead_state_query: Query<(&BacicEnemDeadState, Entity, &Enemy, &Transform)>,
-    hero_asset: Res<EnemySprite>,
-    mut sprite_params: Sprite3dParams,
     mut scorer_query: Query<&mut Scorer>,
 ) {
     let Ok(mut scorer) = scorer_query.get_single_mut() else {

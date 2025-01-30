@@ -6,7 +6,7 @@
         body {
             margin: 0;
             background: darkgrey;
-            background-size: 100% 100%;
+            background-size: 400% 400%;
             animation: gradient 15s ease infinite;
             height: 100vh;
             display: flex;
@@ -50,7 +50,23 @@
 
 <body>
     <div class="loader"></div>
-    <script>
+    <script type="module">
+        var audio;
+        export function play_music(asset) {
+            if (audio) {
+                audio.pause();
+                audio = null;
+            }
+            audio = new Audio(asset);
+            audio.play();
+        }
+        export function stop_music() {
+            if (audio) {
+                audio.pause();
+                audio = null;
+            }
+        }
+
         // the following function keeps track of all AudioContexts and resumes them on the first user
         // interaction with the page. If the function is called and all contexts are already running,
         // it will remove itself from all event listeners.
@@ -86,6 +102,10 @@
             function resumeAllContexts(_event) {
                 let count = 0;
 
+
+
+
+
                 audioContextList.forEach((context) => {
                     if (context.state !== "running") {
                         context.resume();
@@ -101,6 +121,7 @@
                     userInputEventNames.forEach((eventName) => {
                         document.removeEventListener(eventName, resumeAllContexts);
                     });
+                    play_music('assets/music/GrumpySworrd_intro.wav');
                 }
             }
 
@@ -110,6 +131,9 @@
                 document.addEventListener(eventName, resumeAllContexts);
             });
         })();
+
+        window.play_music = play_music;
+        window.stop_music = stop_music;
     </script>
     <script type="module">
         import init from './out/not_worthy.js'

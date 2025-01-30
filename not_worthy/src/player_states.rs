@@ -88,6 +88,13 @@ fn player_idle_state_system(
             }
             state.new = false;
         }
+        if let Ok(dead) = dead_query.get(entity) {
+            commands
+                .entity(entity)
+                .insert(PlayerDeadState { new: true });
+            player_idle_on_exit(&mut commands, entity);
+            continue;
+        }
         if let Ok(hitting) = hitting_query.get(entity) {
             commands
                 .entity(entity)
@@ -104,14 +111,6 @@ fn player_idle_state_system(
                 player_idle_on_exit(&mut commands, entity);
                 continue;
             }
-        }
-
-        if let Ok(dead) = dead_query.get(entity) {
-            commands
-                .entity(entity)
-                .insert(PlayerDeadState { new: true });
-            player_idle_on_exit(&mut commands, entity);
-            continue;
         }
     }
 }
@@ -152,6 +151,14 @@ fn player_attack_state_system(
                 state.new = false;
             }
         }
+
+        if let Ok(dead) = dead_query.get(entity) {
+            commands
+                .entity(entity)
+                .insert(PlayerDeadState { new: true });
+            player_attacking_on_exit(&mut commands, entity);
+            continue;
+        }
         if let Ok(mut attack_timer) = attack_timer_query.get_mut(entity) {
             attack_timer.timer.tick(time.delta());
             if (attack_timer.timer.finished()) {
@@ -161,14 +168,6 @@ fn player_attack_state_system(
                 player_attacking_on_exit(&mut commands, entity);
                 continue;
             }
-        }
-
-        if let Ok(dead) = dead_query.get(entity) {
-            commands
-                .entity(entity)
-                .insert(PlayerDeadState { new: true });
-            player_attacking_on_exit(&mut commands, entity);
-            continue;
         }
     }
 }
@@ -208,6 +207,13 @@ fn player_walk_state_system(
             }
             state.new = false;
         }
+        if let Ok(dead) = dead_query.get(entity) {
+            commands
+                .entity(entity)
+                .insert(PlayerDeadState { new: true });
+            player_walking_on_exit(&mut commands, entity);
+            continue;
+        }
         if let Ok(hitting) = hitting_query.get(entity) {
             commands
                 .entity(entity)
@@ -224,14 +230,6 @@ fn player_walk_state_system(
                 player_walking_on_exit(&mut commands, entity);
                 continue;
             }
-        }
-
-        if let Ok(dead) = dead_query.get(entity) {
-            commands
-                .entity(entity)
-                .insert(PlayerDeadState { new: true });
-            player_walking_on_exit(&mut commands, entity);
-            continue;
         }
     }
 }

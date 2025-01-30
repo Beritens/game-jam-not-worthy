@@ -1,4 +1,5 @@
 use crate::asset_load::{GameData, GameInfos, Messages, ShopItem, UIAssets, UISounds};
+use crate::combat::Health;
 use crate::game_manager::Scorer;
 use crate::game_state::GameState::Shop;
 use crate::game_state::{GameState, PauseState};
@@ -14,8 +15,8 @@ use bevy::hierarchy::DespawnRecursiveExt;
 use bevy::prelude::{
     default, in_state, AlignItems, BackgroundColor, BuildChildren, Button, Changed, ChildBuild,
     ChildBuilder, Commands, Component, Entity, ImageNode, Interaction, IntoSystemConfigs,
-    JustifyContent, NextState, Node, OnEnter, Quat, Query, Res, ResMut, Text, TextColor, TextFont,
-    Time, Timer, Transform, UiRect, Val, With,
+    JustifyContent, JustifyText, NextState, Node, OnEnter, Parent, Quat, Query, Res, ResMut, Text,
+    TextColor, TextFont, TextLayout, Time, Timer, Transform, UiRect, Val, With,
 };
 use bevy::time::TimerMode;
 use bevy::ui::{FlexDirection, ZIndex};
@@ -47,7 +48,12 @@ impl Plugin for UIStuffPlugin {
         );
         app.add_systems(
             Update,
-            (update_socre_display_system).run_if(in_state(GameState::InGame)),
+            (
+                update_socre_display_system,
+                setup_health_bar_system,
+                update_health_bar_system,
+            )
+                .run_if(in_state(GameState::InGame)),
         );
         app.add_systems(
             Update,
@@ -625,6 +631,104 @@ struct ScoreDispay;
 
 #[derive(Component)]
 struct Preamble;
+
+#[derive(Component)]
+pub struct HealthBarInitiator {
+    pub enity: Entity,
+    pub name: String,
+}
+
+#[derive(Component)]
+pub struct HealthBar {
+    pub enity: Entity,
+}
+
+fn update_health_bar_system(
+    mut commands: Commands,
+    health_query: Query<&Health>,
+    mut health_bar_query: Query<(&HealthBar, &mut Node, Entity)>,
+    q_parent: Query<&Parent>,
+) {
+    for (health_bar, mut node, ent) in health_bar_query.iter_mut() {
+        if let Ok(health) = health_query.get(health_bar.enity) {
+            let percentage = health.health / health.max_health;
+            node.width = Val::Percent(percentage * 100.0);
+        } else {
+            let parent = q_parent.get(ent).unwrap();
+            let parent2 = q_parent.get(parent.get()).unwrap();
+            let parent3 = q_parent.get(parent2.get()).unwrap();
+            commands.entity(parent3.get()).despawn_recursive();
+        }
+    }
+}
+fn setup_health_bar_system(
+    mut commands: Commands,
+    initiator_query: Query<(Entity, &HealthBarInitiator)>,
+) {
+    for (ent, hbar) in initiator_query.iter() {
+        let text_font_smol = TextFont {
+            font_size: 25.0,
+            ..default()
+        };
+        commands
+            .spawn((
+                SceneObject,
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Start,
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new(hbar.name.clone()),
+                    text_font_smol.clone(),
+                    TextColor(TEXT_COLOR),
+                    Node {
+                        margin: UiRect::all(Val::Vh(1.0)),
+                        ..default()
+                    },
+                ));
+                parent
+                    .spawn((
+                        BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                        Node {
+                            width: Val::Percent(50.0),
+                            height: Val::Percent(5.0),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+
+                            ..default()
+                        },
+                    ))
+                    .with_children(|parent| {
+                        parent
+                            .spawn((Node {
+                                width: Val::Percent(99.0),
+                                height: Val::Percent(90.0),
+
+                                ..default()
+                            },))
+                            .with_children(|parent| {
+                                parent.spawn((
+                                    HealthBar { enity: hbar.enity },
+                                    BackgroundColor(Color::srgb(0.90, 0.10, 0.10)),
+                                    Node {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+
+                                        ..default()
+                                    },
+                                ));
+                            });
+                    });
+            });
+        commands.entity(ent).despawn();
+    }
+}
 fn setup_game_ui(mut commands: Commands) {
     let text_font = TextFont {
         font_size: 33.0,
@@ -729,8 +833,9 @@ fn setup_loading_ui(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 SceneObject,
-                Text::new("Loading Assets"),
+                Text::new("Loading Assets \n (Click me to play music)"),
                 text_font.clone(),
+                TextLayout::new_with_justify(JustifyText::Center),
                 TextColor(TEXT_COLOR),
                 Node {
                     margin: UiRect::all(Val::Vh(4.0)),

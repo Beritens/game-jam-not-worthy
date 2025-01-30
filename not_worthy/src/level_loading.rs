@@ -34,6 +34,7 @@ use bevy_pipelines_ready::{PipelinesReady, PipelinesReadyPlugin};
 use bevy_sprite3d::{Sprite3dBuilder, Sprite3dParams};
 use std::f32::consts::PI;
 use std::time::Duration;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 pub struct LevelLoadingPlugin;
 
@@ -146,15 +147,8 @@ fn setup(
         },
         SceneObject,
     ));
-    commands.spawn((
-        AudioPlayer::new(enemy_sounds.steps.clone()),
-        PlaybackSettings {
-            volume: Volume::new(1.0),
-            mode: PlaybackMode::Loop,
-            ..Default::default()
-        },
-        SceneObject,
-    ));
+    play_game_music(&mut commands, music_assets);
+
     // commands.spawn((
     //     Camera3d::default(),
     //     MainCamera,
@@ -183,112 +177,135 @@ fn setup(
         Transform::from_xyz(1.5, 0.0, 0.0),
     ));
 
-    if (true) {
-        for i in -50..50 {
-            commands.spawn((
-                SceneObject {},
-                DeceasedSpawnPoint {
-                    enemy_type: EnemyType::BASIC,
-                },
-                Transform::from_xyz(6.0 * i as f32 / 50.0, 0.0, 0.0),
-            ));
-        }
-    }
-    // commands.spawn((
-    //     Transform::from_xyz(30.0, 2.00, 0.0),
-    //     EnemySpawner {
-    //         inactive: Timer::default(),
-    //         preheat: 0.0,
-    //         min: 0.2,
-    //         max: 10.0,
-    //         factor: 0.9,
-    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-    //         enemy_type: EnemyType::BASIC,
-    //     },
-    //     SceneObject,
-    // ));
-    //
-    // commands.spawn((
-    //     Transform::from_xyz(-30.0, 2.00, 0.0),
-    //     EnemySpawner {
-    //         inactive: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
-    //         preheat: 0.0,
-    //         min: 0.2,
-    //         max: 10.0,
-    //         factor: 0.9,
-    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-    //         enemy_type: EnemyType::BASIC,
-    //     },
-    //     SceneObject,
-    // ));
-    // commands.spawn((
-    //     Transform::from_xyz(-30.0, 2.00, 0.0),
-    //     EnemySpawner {
-    //         inactive: Timer::default(),
-    //         preheat: 2.0,
-    //         min: 0.1,
-    //         max: 10.0,
-    //         factor: 1.1,
-    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-    //         enemy_type: EnemyType::FAST,
-    //     },
-    //     SceneObject,
-    // ));
-    //
-    // commands.spawn((
-    //     Transform::from_xyz(30.0, 2.00, 0.0),
-    //     EnemySpawner {
-    //         inactive: Timer::default(),
-    //         preheat: 3.0,
-    //         min: 0.1,
-    //         max: 10.0,
-    //         factor: 1.1,
-    //         timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
-    //         enemy_type: EnemyType::FAST,
-    //     },
-    //     SceneObject,
-    // ));
-    // commands.spawn((
-    //     Transform::from_xyz(-30.0, 2.00, 0.0),
-    //     EnemySpawner {
-    //         inactive: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Once),
-    //         preheat: 2.0,
-    //         min: 1.0,
-    //         max: 10.0,
-    //         factor: 0.9,
-    //         timer: Timer::new(Duration::from_secs_f32(45.0), TimerMode::Repeating),
-    //         enemy_type: EnemyType::BIG,
-    //     },
-    //     SceneObject,
-    // ));
-    //
-    // commands.spawn((
-    //     Transform::from_xyz(30.0, 2.00, 0.0),
-    //     EnemySpawner {
-    //         inactive: Timer::new(Duration::from_secs_f32(20.0), TimerMode::Once),
-    //         preheat: 0.0,
-    //         min: 1.0,
-    //         max: 10.0,
-    //         factor: 0.9,
-    //         timer: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Repeating),
-    //         enemy_type: EnemyType::BIG,
-    //     },
-    //     SceneObject,
-    // ));
+    // if (true) {
+    //     for i in -50..50 {
+    //         commands.spawn((
+    //             SceneObject {},
+    //             DeceasedSpawnPoint {
+    //                 enemy_type: EnemyType::BASIC,
+    //             },
+    //             Transform::from_xyz(6.0 * i as f32 / 50.0, 0.0, 0.0),
+    //         ));
+    //     }
+    // }
     commands.spawn((
-        Transform::from_xyz(30.0, 2.00, 0.0),
+        Transform::from_xyz(10.0, 2.00, 0.0),
         EnemySpawner {
-            once: true,
+            once: false,
+            inactive: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Once),
+            preheat: 0.0,
+            min: 0.2,
+            max: 10.0,
+            factor: 0.9,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BASIC,
+        },
+        SceneObject,
+    ));
+
+    commands.spawn((
+        Transform::from_xyz(-10.0, 2.00, 0.0),
+        EnemySpawner {
+            once: false,
+            inactive: Timer::new(Duration::from_secs_f32(10.0), TimerMode::Once),
+            preheat: 0.0,
+            min: 0.2,
+            max: 10.0,
+            factor: 0.9,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BASIC,
+        },
+        SceneObject,
+    ));
+    commands.spawn((
+        Transform::from_xyz(-10.0, 0.00, 0.0),
+        EnemySpawner {
+            once: false,
+            inactive: Timer::new(Duration::from_secs_f32(1.0), TimerMode::Once),
+            preheat: 0.1,
+            min: 0.1,
+            max: 10.0,
+            factor: 1.1,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::FAST,
+        },
+        SceneObject,
+    ));
+
+    commands.spawn((
+        Transform::from_xyz(10.0, 0.00, 0.0),
+        EnemySpawner {
+            once: false,
             inactive: Timer::default(),
-            preheat: 17.0,
+            preheat: 0.1,
+            min: 0.1,
+            max: 10.0,
+            factor: 1.1,
+            timer: Timer::new(Duration::from_secs_f32(5.0), TimerMode::Repeating),
+            enemy_type: EnemyType::FAST,
+        },
+        SceneObject,
+    ));
+    commands.spawn((
+        Transform::from_xyz(-12.0, 2.00, 0.0),
+        EnemySpawner {
+            once: false,
+            inactive: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Once),
+            preheat: 2.0,
             min: 1.0,
             max: 10.0,
             factor: 0.9,
-            timer: Timer::new(Duration::from_secs_f32(0.10), TimerMode::Repeating),
+            timer: Timer::new(Duration::from_secs_f32(45.0), TimerMode::Repeating),
             enemy_type: EnemyType::BIG,
         },
         SceneObject,
     ));
+
+    commands.spawn((
+        Transform::from_xyz(12.0, 2.00, 0.0),
+        EnemySpawner {
+            once: false,
+            inactive: Timer::new(Duration::from_secs_f32(20.0), TimerMode::Once),
+            preheat: 0.0,
+            min: 1.0,
+            max: 10.0,
+            factor: 0.9,
+            timer: Timer::new(Duration::from_secs_f32(50.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BIG,
+        },
+        SceneObject,
+    ));
+    commands.spawn((
+        Transform::from_xyz(8.50, 2.00, 0.0),
+        EnemySpawner {
+            once: false,
+            inactive: Timer::new(Duration::from_secs_f32(00.0), TimerMode::Once),
+            preheat: 0.0,
+            min: 1.0,
+            max: 100.0,
+            factor: 0.9,
+            timer: Timer::new(Duration::from_secs_f32(100.0), TimerMode::Repeating),
+            enemy_type: EnemyType::BOSS,
+        },
+        SceneObject,
+    ));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn play_game_music(commands: &mut Commands, music_assets: Res<MusicAssets>) {
+    commands.spawn((
+        AudioPlayer::new(music_assets.in_game.clone()),
+        PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+        SceneObject,
+    ));
+}
+
+#[cfg(target_arch = "wasm32")]
+fn play_game_music(commands: &mut Commands, music_assets: Res<MusicAssets>) {
+    play_music("assets/music/GrumpySworrd_intense.wav");
 }
 
 fn delete_everything(query: Query<Entity, With<SceneObject>>, mut commands: Commands) {
@@ -354,6 +371,17 @@ fn setup_menu(
         Transform::from_xyz(0.0, 2.00, 10.0),
         Msaa::Off,
     ));
+    play_menu_music(&mut commands, music_assets);
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    fn play_music(asset: &str);
+    fn stop_music();
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn play_menu_music(commands: &mut Commands, music_assets: Res<MusicAssets>) {
     commands.spawn((
         AudioPlayer::new(music_assets.menu.clone()),
         PlaybackSettings {
@@ -364,6 +392,11 @@ fn setup_menu(
     ));
 }
 
+#[cfg(target_arch = "wasm32")]
+fn play_menu_music(commands: &mut Commands, music_assets: Res<MusicAssets>) {
+    //do nothing lul
+}
+
 fn setup_shop(mut commands: Commands, music_assets: Res<MusicAssets>) {
     commands.spawn((
         SceneObject,
@@ -372,6 +405,15 @@ fn setup_shop(mut commands: Commands, music_assets: Res<MusicAssets>) {
         Transform::from_xyz(0.0, 2.00, 10.0),
         Msaa::Off,
     ));
+    play_shop_music(&mut commands, music_assets);
+}
+#[derive(Component)]
+struct CutSceneTime {
+    timer: Timer,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn play_shop_music(commands: &mut Commands, music_assets: Res<MusicAssets>) {
     commands.spawn((
         AudioPlayer::new(music_assets.shop.clone()),
         PlaybackSettings {
@@ -381,9 +423,10 @@ fn setup_shop(mut commands: Commands, music_assets: Res<MusicAssets>) {
         SceneObject,
     ));
 }
-#[derive(Component)]
-struct CutSceneTime {
-    timer: Timer,
+
+#[cfg(target_arch = "wasm32")]
+fn play_shop_music(commands: &mut Commands, music_assets: Res<MusicAssets>) {
+    play_music("assets/music/GrumpySworrd_instance.wav");
 }
 
 fn setup_cut_scene(
@@ -425,6 +468,17 @@ fn setup_cut_scene(
         },
         SceneObject,
     ));
+    stop_game_music();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn stop_game_music() {
+    //do nothing lul
+}
+
+#[cfg(target_arch = "wasm32")]
+fn stop_game_music() {
+    stop_music();
 }
 
 fn cut_scene_wait_system(
